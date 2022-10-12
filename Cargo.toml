@@ -1,0 +1,23 @@
+[package]
+name = "melon"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+const-fnv1a-hash = "1.0.1"
+serde_json = "1.0"
+serde_cbor = "0.11.2"
+tracing = "0.1.36"
+hashbrown = {version = "0.12.3", features = ["rayon"]}
+tracing-subscriber = "0.3.15"
+rand = "0.8.5"
+rayon = "1.5.3"
+typenum = "1.15.0"
+rstar = "*"
+[dependencies.clap]
+features = ["derive"]
+version = "3.1.18"
+
+[dependencies.serde]
+features = ["derive"]
+version = "1.0"
