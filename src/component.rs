@@ -1,4 +1,3 @@
-
 use std::{any::Any, fmt::Display, sync::Arc};
 
 use serde::{Deserialize, Serialize};
@@ -42,7 +41,6 @@ impl ComponentTypeId {
         ComponentTypeId(id)
     }
     pub fn new<T: 'static>() -> Self {
-        
         get_type_id::<T>()
     }
     pub fn get_number(&self) -> u64 {
@@ -58,10 +56,9 @@ pub trait ComponentType:
 #[derive(Clone)]
 pub struct UntypedComponent {
     component_type_id: ComponentTypeId,
-    instance_id : ComponentInstanceId,
+    instance_id: ComponentInstanceId,
     data: Arc<Box<dyn Any + Send + Sync>>,
 }
-
 
 impl UntypedComponent {
     pub fn get<T: ComponentType + 'static>(&self) -> Option<&T> {
@@ -76,11 +73,11 @@ impl UntypedComponent {
     pub fn get_instance_id(&self) -> ComponentInstanceId {
         self.instance_id
     }
-    pub fn new<T: ComponentType>(component: T, entity_id : entity_id::EntityId) -> Self {
+    pub fn new<T: ComponentType>(component: T, entity_id: entity_id::EntityId) -> Self {
         UntypedComponent {
             component_type_id: get_type_id::<T>(),
             data: Arc::new(Box::new(component)),
-            instance_id : ComponentInstanceId::new::<T>(entity_id),
+            instance_id: ComponentInstanceId::new::<T>(entity_id),
         }
     }
 }
@@ -90,5 +87,3 @@ impl Display for ComponentTypeId {
         write!(f, "type<{:X}>", self.0)
     }
 }
-
-

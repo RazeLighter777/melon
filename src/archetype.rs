@@ -5,5 +5,5 @@ enum Archetype {
     Item,
     Block,
     Civilization,
-    Entit
+    Entit,
 }

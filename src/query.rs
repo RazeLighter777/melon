@@ -1,23 +1,24 @@
-use hashbrown::{HashSet, HashMap};
+use hashbrown::{HashMap, HashSet};
 
-use crate::{component::{self, ComponentType, ComponentTypeId, UntypedComponent, ComponentInstanceId}, entity_id};
-
-
+use crate::{
+    component::{self, ComponentInstanceId, ComponentType, ComponentTypeId, UntypedComponent},
+    entity_id,
+};
 
 pub struct Query {
     pub components: HashSet<component::ComponentTypeId>,
 }
 
 pub struct QueryBuilder {
-    query : Query
+    query: Query,
 }
 
 impl QueryBuilder {
     pub fn new() -> Self {
         QueryBuilder {
-            query : Query {
-                components : HashSet::new(),
-            }
+            query: Query {
+                components: HashSet::new(),
+            },
         }
     }
     pub fn with<T: ComponentType>(mut self) -> Self {
@@ -30,31 +31,41 @@ impl QueryBuilder {
 }
 
 pub struct QueryResult {
-    entities : Vec<ComponentGroup>,
+    entities: Vec<ComponentGroup>,
 }
 
 impl QueryResult {
     pub(crate) fn get_changes(self) -> Vec<Change> {
-        
-        self.entities.into_iter().flat_map(|x| x.get_changes()).collect()
+        self.entities
+            .into_iter()
+            .flat_map(|x| x.get_changes())
+            .collect()
+    }
+    pub fn iter(&mut self) -> std::slice::IterMut<ComponentGroup> {
+        let i = self.entities.iter_mut();
+        i
     }
 }
 
 pub struct QueryResultBuilder {
-    query_result : QueryResult,
+    query_result: QueryResult,
 }
 impl QueryResultBuilder {
     pub fn new() -> Self {
         QueryResultBuilder {
-            query_result : QueryResult {
-                entities : Vec::new(),
-            }
+            query_result: QueryResult {
+                entities: Vec::new(),
+            },
         }
     }
-    pub fn with_entity(&mut self,components : impl IntoIterator<Item = UntypedComponent>, id : entity_id::EntityId) -> &mut Self {
-        self.query_result.entities.push(
-            ComponentGroup::new(id, components),
-        );
+    pub fn with_entity(
+        &mut self,
+        components: impl IntoIterator<Item = UntypedComponent>,
+        id: entity_id::EntityId,
+    ) -> &mut Self {
+        self.query_result
+            .entities
+            .push(ComponentGroup::new(id, components));
         self
     }
     pub fn build(self) -> QueryResult {
@@ -63,11 +74,11 @@ impl QueryResultBuilder {
 }
 
 pub struct ComponentGroup {
-    id : entity_id::EntityId,
-    components: HashMap<ComponentTypeId,QueriedComponent>,
-    added_components : Vec<UntypedComponent>,
-    removed_components : Vec<ComponentInstanceId>,
-    removed : bool,
+    id: entity_id::EntityId,
+    components: HashMap<ComponentTypeId, QueriedComponent>,
+    added_components: Vec<UntypedComponent>,
+    removed_components: Vec<ComponentInstanceId>,
+    removed: bool,
 }
 
 impl ComponentGroup {
@@ -75,9 +86,7 @@ impl ComponentGroup {
         let component_type_id = component::get_type_id::<T>();
         let component = self.components.get(&component_type_id);
         match component {
-            Some(component) => {
-                component.get()
-            }
+            Some(component) => component.get(),
             None => None,
         }
     }
@@ -89,20 +98,25 @@ impl ComponentGroup {
         let component = self.components.get(&component_type_id);
         match component {
             Some(_component) => {
-                self.removed_components.push(component::ComponentInstanceId::new::<T>(self.id));
+                self.removed_components
+                    .push(component::ComponentInstanceId::new::<T>(self.id));
             }
             None => (),
         }
     }
-    pub fn new(id : entity_id::EntityId, components : impl IntoIterator<Item = UntypedComponent>) -> Self {
+    pub fn new(
+        id: entity_id::EntityId,
+        components: impl IntoIterator<Item = UntypedComponent>,
+    ) -> Self {
         ComponentGroup {
-            components : components.into_iter().map(|component| {
-                (component.get_type(), QueriedComponent::new(component))
-            }).collect(),
+            components: components
+                .into_iter()
+                .map(|component| (component.get_type(), QueriedComponent::new(component)))
+                .collect(),
             added_components: Vec::new(),
             id,
             removed_components: Vec::new(),
-            removed : false,
+            removed: false,
         }
     }
     pub fn get_unchecked<T: ComponentType>(&self) -> &T {
@@ -117,8 +131,7 @@ impl ComponentGroup {
             Some(comp) => {
                 comp.set(c);
             }
-            None => {
-            }
+            None => {}
         }
     }
     pub fn get_changes(&self) -> Vec<Change> {
@@ -141,8 +154,6 @@ impl ComponentGroup {
     }
 }
 
-
-
 pub enum Change {
     RemoveComponent(ComponentInstanceId),
     AddComponent(UntypedComponent),
@@ -151,14 +162,14 @@ pub enum Change {
 }
 pub struct QueriedComponent {
     component: component::UntypedComponent,
-    write_cache : Option<component::UntypedComponent>,
+    write_cache: Option<component::UntypedComponent>,
 }
 
 impl QueriedComponent {
     pub fn new(component: component::UntypedComponent) -> Self {
         QueriedComponent {
             component,
-            write_cache : None,
+            write_cache: None,
         }
     }
     pub fn get<T: ComponentType + 'static>(&self) -> Option<&T> {
@@ -168,19 +179,12 @@ impl QueriedComponent {
         self.component.get_unchecked::<T>()
     }
     pub fn set<T: ComponentType + 'static>(&mut self, component: T) {
-        self.write_cache = Some(component::UntypedComponent::new(component, self.component.get_instance_id().get_entity_id()));
-    }
-}
-
-impl IntoIterator for QueryResult {
-    type Item = ComponentGroup;
-    type IntoIter = std::vec::IntoIter<Self::Item>;
-    fn into_iter(self) -> Self::IntoIter {
-        self.entities.into_iter()
+        self.write_cache = Some(component::UntypedComponent::new(
+            component,
+            self.component.get_instance_id().get_entity_id(),
+        ));
     }
 }
 
 #[test]
-pub fn test_query() {
-
-}
+pub fn test_query() {}
