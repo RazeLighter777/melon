@@ -106,7 +106,7 @@ impl World {
     }
 
     pub fn execute_stage(&mut self, stage: &stage::Stage) {
-        println!("Executing");
+        //println!("Executing");
         let changed = stage
             .iter()
             .map(|system| {

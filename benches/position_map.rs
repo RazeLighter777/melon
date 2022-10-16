@@ -18,10 +18,7 @@ impl system::System for TestSystem {
         world: &world::World,
     ) -> commands::Command {
         for e in query_result.iter() {
-            println!(
-                "Entity has position {}",
-                e.get_unchecked::<base_components::Position>().x
-            );
+            
             e.set::<base_components::Position>(base_components::Position {
                 x: e.get_unchecked::<base_components::Position>().x + 1,
                 y: e.get_unchecked::<base_components::Position>().y + 1,
@@ -36,15 +33,7 @@ impl system::System for TestSystem {
 #[bench]
 fn position_map_test(b: &mut Bencher) {
     let mut world = default_world::DefaultWorld::new().build();
-    world
-        .add_entity()
-        .with(base_components::Position { x: 0, y: 0 })
-        .spawn();
-    world
-        .add_entity()
-        .with(base_components::Position { x: 0, y: 0 })
-        .spawn();
-    for i in 0..10000 {
+    for i in 0..10 {
         world
             .add_entity()
             .with(base_components::Position { x: i, y: 0 })
@@ -58,5 +47,6 @@ fn position_map_test(b: &mut Bencher) {
         .build();
     b.iter(|| {
         world.execute_stage(&stage1);
+        println!("list : {:?}",  world.get_resource::<base_resources::PositionMap>().unwrap().get_nearest([0,0], 30));
     })
 }

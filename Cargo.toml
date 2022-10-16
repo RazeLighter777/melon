@@ -14,9 +14,8 @@ rand = "0.8.5"
 rayon = "1.5.3"
 typenum = "1.15.0"
 mimalloc = { version = "*", default-features = false }
-
+rtree_rs = "0.1.2"
 sled = "0.34.7"
-rstar = "*"
 [dependencies.clap]
 features = ["derive"]
 version = "3.1.18"
