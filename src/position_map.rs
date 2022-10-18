@@ -1,4 +1,8 @@
-use crate::{base_components, entity_id::{self, EntityId}, query, resource, world};
+use crate::{
+    base_components,
+    entity_id::{self, EntityId},
+    query, resource, world,
+};
 use hashbrown::HashMap;
 use rtree_rs;
 use std::sync::Mutex;
@@ -41,17 +45,22 @@ impl PositionMap {
         map.remove(rtree_rs::Rect::new_point(*position), &id);
         entity_to_position.remove(&id);
     }
-    pub fn get_nearest(&self, position: [i32; 2], n: usize) -> Vec<(entity_id::EntityId, [i32; 2])> {
+    pub fn get_nearest(
+        &self,
+        position: [i32; 2],
+        n: usize,
+    ) -> Vec<(entity_id::EntityId, [i32; 2])> {
         let lk = self.map.lock().unwrap();
-        let nearest = lk.nearby(|rect,p| {
+        let nearest = lk.nearby(|rect, p| {
             //euclidean distances
             let min = position;
             let max = rect.max;
             //distance formula
             //println!("distance {:?}", rect.max);
-            (((max[0] - min[0]) * (max[0] - min[0]) + (max[1] - min[1]) * (max[1] - min[1])) as f32).sqrt() as i32
+            (((max[0] - min[0]) * (max[0] - min[0]) + (max[1] - min[1]) * (max[1] - min[1])) as f32)
+                .sqrt() as i32
         });
-        let plain = nearest.map(|x| (*x.data, x.rect.max) );
+        let plain = nearest.map(|x| (*x.data, x.rect.max));
         plain.take(n).collect()
     }
 }

@@ -1,0 +1,6 @@
+{
+    "merge":  ["tag1","tag2"],
+    "id" : 36,
+    "tp" : "lore::TestLore",
+    "tags" : ["tag1", "tag2","tag3"]
+}
