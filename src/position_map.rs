@@ -67,7 +67,7 @@ impl PositionMap {
 
 impl resource::Resource for PositionMap {}
 
-pub fn position_hook(change: &query::Change, world: &mut world::World) {
+pub fn position_hook(change: &query::Change, world: &world::World) {
     let position_map = world
         .get_resource::<PositionMap>()
         .expect("PositionMap not found");

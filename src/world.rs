@@ -1,15 +1,13 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use crate::{
     base_components, component, entity_builder,
     entity_id::{self},
     query::{self, Change},
-    resource, stage,
+    resource, stage,hook::{self, AddComponentHook, ChangeHook}
 };
 use hashbrown::{HashMap, HashSet};
 use rayon::prelude::*;
-
-pub type Hook = fn(&Change, &mut World) -> ();
 
 #[derive(Clone)]
 pub struct WorldRef {
@@ -31,8 +29,11 @@ pub struct World {
     entities: HashMap<entity_id::EntityId, HashSet<component::ComponentInstanceId>>,
     components_types: HashMap<component::ComponentTypeId, HashSet<entity_id::EntityId>>,
     resources: HashMap<u64, resource::UntypedResource>,
-    change_trackers: HashMap<component::ComponentTypeId, Vec<component::ComponentInstanceId>>,
-    hooks: Vec<Hook>,
+    //change_trackers: HashMap<component::ComponentTypeId, Vec<component::ComponentInstanceId>>,
+    hooks: Vec<hook::ChangeHook>,
+    add_component_hooks : HashMap<component::ComponentTypeId,Arc<Box<dyn hook::AddComponentHook>>>,
+    loader : Option<Arc<Mutex<Box<dyn hook::Loader>>>>,
+    unloader : Option<Arc<Mutex<Box<dyn hook::Unloader>>>>,
 }
 
 impl World {
@@ -94,8 +95,10 @@ impl World {
             entities: HashMap::new(),
             components_types: HashMap::new(),
             resources: HashMap::new(),
-            change_trackers: HashMap::new(),
             hooks: Vec::new(),
+            add_component_hooks : HashMap::new(),
+            loader : None,
+            unloader : None,
         }
     }
 
@@ -119,10 +122,22 @@ impl World {
         self.execute_changes(changed);
     }
 
+    pub fn load(&mut self, id : Vec<entity_id::EntityId>) -> Vec::<entity_id::EntityId> {
+        let mut loaded = Vec::new();
+        if let Some(loader) = &self.loader.clone() {
+            if let Ok(mut ld) = loader.lock() {
+                let res = ld.hook(id, self);
+                self.execute_changes(res.0);
+                loaded = res.1;
+            }
+        }
+        loaded
+    }
+
     fn execute_changes(&mut self, changed: Vec<Change>) {
         changed.iter().for_each(|change| {
             self.hooks.clone().iter().for_each(|hook| {
-                hook(change, self);
+                hook.execute(change, self);
             });
             match change {
                 Change::RemoveComponent(id) => {
@@ -141,6 +156,10 @@ impl World {
                 }
                 Change::AddComponent(comp) => {
                     let tid = comp.get_type();
+                    //execute add component hooks
+                    if let Some(hook) = self.add_component_hooks.get(&tid) {
+                        hook.clone().hook(comp,self);
+                    }
                     let eid = comp.get_instance_id().get_entity_id();
                     let cid = comp.get_instance_id();
                     self.components.insert(cid, comp.clone());
@@ -226,11 +245,28 @@ impl WorldBuilder {
         );
         self
     }
-    pub fn with_hook(mut self, hook: Hook) -> Self {
-        self.world.hooks.push(hook);
+    pub fn with_add_component_hook(mut self, hook: impl AddComponentHook + 'static) -> Self {
+        self.world.add_component_hooks.insert(hook.get_component_type_id(), Arc::new(Box::new(hook)));
+        self
+    }
+    pub fn with_loader(mut self, loader: impl hook::Loader + 'static) -> Self {
+        self.world.loader = Some(Arc::new(Mutex::new(Box::new(loader))));
+        self
+    }
+    pub fn with_unloader(mut self, unloader: impl hook::Unloader + 'static) -> Self {
+        self.world.unloader = Some(Arc::new(Mutex::new(Box::new(unloader))));
+        self
+    }
+    pub fn with_hook(mut self, hook: impl Into<hook::ChangeHook>) -> Self {
+        self.world.hooks.push(hook.into());
         self
     }
     pub fn build(self) -> World {
         self.world
+    }
+}
+impl Into<ChangeHook> for fn(&query::Change, &World) -> () {
+    fn into(self) -> ChangeHook {
+        ChangeHook::new(self)
     }
 }

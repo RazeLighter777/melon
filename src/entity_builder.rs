@@ -21,7 +21,7 @@ impl<'spawner> EntityBuilder<'spawner> {
             components: Vec::new(),
         }
     }
-    pub fn with<T: component::ComponentType>(mut self, component: T) -> Self {
+    pub fn with<T: component::ComponentType>(mut self, mut component: T) -> Self {
         self.components
             .push(component::UntypedComponent::new(component, self.id));
         self
