@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{component, entity_id, hook, world, query};
+use crate::{component, entity_id, hook, query, world};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Position {
@@ -34,22 +34,52 @@ pub struct Parent {
 }
 impl component::ComponentType for Parent {}
 
-struct ChildEntityAddComponentHook {
+struct ChildEntityAddComponentHook {}
 
-}
-
-impl hook::AddComponentHook for ChildEntityAddComponentHook {
-    fn hook(&self, component: &component::UntypedComponent, world: &mut world::World) -> Vec<query::Change> {
-        let mut changes = Vec::new();
-        if let Some(child_entities) = component.get::<Children>() {
-            world.load(child_entities.entities.clone());
-            for child_entity in child_entities.entities.iter() {
-                changes.push(query::Change::AddComponent(component::UntypedComponent::new(Parent { entity: component.get_instance_id().get_entity_id() }, *child_entity)));
+fn changed_parent_hook(change: &query::Change, w: &mut world::World) -> Vec<query::Change> {
+    match change {
+        query::Change(comp2, query::ChangeType::RemoveComponent) => {
+            if let Some(comp) = comp2.get::<Children>() {
+                let mut changes = Vec::new();
+                for child in comp.entities.iter() {
+                    w.get_all_components_of_entity(*child)
+                        .iter()
+                        .for_each(|comp| {
+                            for c in comp.iter() {
+                                changes.push(query::Change(
+                                    c.clone(),
+                                    query::ChangeType::RemoveComponent,
+                                ));
+                            }
+                        });
+                }
+                changes
+            } else {
+                Vec::new()
             }
         }
-        changes
-    }
-    fn get_component_type_id(&self) -> component::ComponentTypeId {
-        component::get_type_id::<Children>()
+        query::Change(comp, query::ChangeType::AddComponent) => {
+            if let Some(comp) = comp.get::<Children>() {
+                let mut changes = Vec::new();
+                for child in comp.entities.iter() {
+                    changes.push(query::Change::AddComponent());
+                }
+                changes
+            } else {
+                Vec::new()
+            }
+        }
+        query::Change(comp, query::ChangeType::UpdateComponent) => {
+            if let Some(comp) = comp.get::<Children>() {
+                let mut changes = Vec::new();
+                for child in comp.entities.iter() {
+                    changes.push(query::Change::AddComponent());
+                }
+                changes
+            } else {
+                Vec::new()
+            }
+        }
+        query::Change::RemoveEntity(_) => todo!(),
     }
 }

@@ -3,8 +3,9 @@ use std::sync::{Arc, Mutex};
 use crate::{
     base_components, component, entity_builder,
     entity_id::{self},
+    hook::{self, ChangeHook},
     query::{self, Change},
-    resource, stage,hook::{self, AddComponentHook, ChangeHook}
+    resource, stage,
 };
 use hashbrown::{HashMap, HashSet};
 use rayon::prelude::*;
@@ -30,10 +31,9 @@ pub struct World {
     components_types: HashMap<component::ComponentTypeId, HashSet<entity_id::EntityId>>,
     resources: HashMap<u64, resource::UntypedResource>,
     //change_trackers: HashMap<component::ComponentTypeId, Vec<component::ComponentInstanceId>>,
-    hooks: Vec<hook::ChangeHook>,
-    add_component_hooks : HashMap<component::ComponentTypeId,Arc<Box<dyn hook::AddComponentHook>>>,
-    loader : Option<Arc<Mutex<Box<dyn hook::Loader>>>>,
-    unloader : Option<Arc<Mutex<Box<dyn hook::Unloader>>>>,
+    hooks: HashMap<Option<component::ComponentTypeId>, Vec<Arc<hook::ChangeHook>>>,
+    loader: Option<Arc<Mutex<Box<dyn hook::Loader>>>>,
+    unloader: Option<Arc<Mutex<Box<dyn hook::Unloader>>>>,
 }
 
 impl World {
@@ -95,11 +95,26 @@ impl World {
             entities: HashMap::new(),
             components_types: HashMap::new(),
             resources: HashMap::new(),
-            hooks: Vec::new(),
-            add_component_hooks : HashMap::new(),
-            loader : None,
-            unloader : None,
+            hooks: HashMap::new(),
+            loader: None,
+            unloader: None,
         }
+    }
+
+    pub fn get_component_by_instance_id(
+        &self,
+        id: component::ComponentInstanceId,
+    ) -> Option<&component::UntypedComponent> {
+        self.components.get(&id)
+    }
+
+    pub fn get_all_components_of_entity(
+        &self,
+        id: entity_id::EntityId,
+    ) -> Option<Vec<component::UntypedComponent>> {
+        self.entities
+            .get(&id)
+            .map(|x| x.iter().map(|x| *self.components.get(x).unwrap()).collect())
     }
 
     pub fn get_resource<R: resource::Resource + 'static>(&self) -> Option<&R> {
@@ -122,7 +137,7 @@ impl World {
         self.execute_changes(changed);
     }
 
-    pub fn load(&mut self, id : Vec<entity_id::EntityId>) -> Vec::<entity_id::EntityId> {
+    pub fn load(&mut self, id: Vec<entity_id::EntityId>) -> Vec<entity_id::EntityId> {
         let mut loaded = Vec::new();
         if let Some(loader) = &self.loader.clone() {
             if let Ok(mut ld) = loader.lock() {
@@ -136,13 +151,11 @@ impl World {
 
     fn execute_changes(&mut self, changed: Vec<Change>) {
         changed.iter().for_each(|change| {
-            self.hooks.clone().iter().for_each(|hook| {
-                hook.execute(change, self);
-            });
             match change {
-                Change::RemoveComponent(id) => {
-                    let tid = &id.get_component_type_id();
-                    let eid = &id.get_entity_id();
+                query::Change(comp, query::ChangeType::RemoveComponent) => {
+                    let tid = &&comp.get_type();
+                    let eid = &comp.get_instance_id().get_entity_id();
+                    let id = &comp.get_instance_id();
                     if let Some(set) = self.entities.get_mut(eid) {
                         set.remove(id);
                         if set.is_empty() {
@@ -154,12 +167,9 @@ impl World {
                     }
                     self.components.remove(id);
                 }
-                Change::AddComponent(comp) => {
+                query::Change(comp, query::ChangeType::AddComponent) => {
                     let tid = comp.get_type();
                     //execute add component hooks
-                    if let Some(hook) = self.add_component_hooks.get(&tid) {
-                        hook.clone().hook(comp,self);
-                    }
                     let eid = comp.get_instance_id().get_entity_id();
                     let cid = comp.get_instance_id();
                     self.components.insert(cid, comp.clone());
@@ -178,12 +188,9 @@ impl World {
                         self.components_types.insert(tid, set);
                     }
                 }
-                Change::UpdateComponent(comp) => {
-                    let cid = comp.get_instance_id();
-                    self.components.insert(cid, comp.clone());
-                }
-                Change::RemoveEntity(_ent) => {
-                    todo!()
+                query::Change(comp, query::ChangeType::UpdateComponent) => {
+                    let id = comp.get_instance_id();
+                    self.components.insert(id, comp.clone());
                 }
             }
         });
@@ -245,10 +252,6 @@ impl WorldBuilder {
         );
         self
     }
-    pub fn with_add_component_hook(mut self, hook: impl AddComponentHook + 'static) -> Self {
-        self.world.add_component_hooks.insert(hook.get_component_type_id(), Arc::new(Box::new(hook)));
-        self
-    }
     pub fn with_loader(mut self, loader: impl hook::Loader + 'static) -> Self {
         self.world.loader = Some(Arc::new(Mutex::new(Box::new(loader))));
         self
@@ -258,14 +261,14 @@ impl WorldBuilder {
         self
     }
     pub fn with_hook(mut self, hook: impl Into<hook::ChangeHook>) -> Self {
-        self.world.hooks.push(hook.into());
+        //self.world.hooks.push(hook.into());
         self
     }
     pub fn build(self) -> World {
         self.world
     }
 }
-impl Into<ChangeHook> for fn(&query::Change, &World) -> () {
+impl Into<ChangeHook> for fn(&query::Change, &mut World) -> () {
     fn into(self) -> ChangeHook {
         ChangeHook::new(self)
     }

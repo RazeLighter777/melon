@@ -2,7 +2,7 @@ use std::{any::Any, fmt::Display, sync::Arc};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{entity_id, hashing, entity_builder};
+use crate::{entity_builder, entity_id, hashing};
 
 #[derive(Eq, Hash, PartialEq, Serialize, Deserialize, Copy, Clone)]
 pub struct ComponentTypeId(u64);
@@ -51,7 +51,7 @@ impl ComponentTypeId {
 pub trait ComponentType:
     serde::de::DeserializeOwned + Serialize + Any + Send + Sync + Clone
 {
-    fn initialize(&mut self, _builder : &mut entity_builder::EntityBuilder) {}
+    fn initialize(&mut self, _builder: &mut entity_builder::EntityBuilder) {}
 }
 
 #[derive(Clone)]

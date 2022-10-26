@@ -77,8 +77,7 @@ pub struct ComponentGroup {
     id: entity_id::EntityId,
     components: HashMap<ComponentTypeId, QueriedComponent>,
     added_components: Vec<UntypedComponent>,
-    removed_components: Vec<ComponentInstanceId>,
-    removed: bool,
+    removed_components: Vec<UntypedComponent>,
 }
 
 impl ComponentGroup {
@@ -90,16 +89,12 @@ impl ComponentGroup {
             None => None,
         }
     }
-    pub fn remove_entity(&mut self) {
-        self.removed = true;
-    }
     pub fn remove<T: ComponentType>(&mut self) {
         let component_type_id = component::get_type_id::<T>();
         let component = self.components.get(&component_type_id);
         match component {
             Some(_component) => {
-                self.removed_components
-                    .push(component::ComponentInstanceId::new::<T>(self.id));
+                self.removed_components.push(_component.component);
             }
             None => (),
         }
@@ -116,7 +111,6 @@ impl ComponentGroup {
             added_components: Vec::new(),
             id,
             removed_components: Vec::new(),
-            removed: false,
         }
     }
     pub fn get_unchecked<T: ComponentType>(&self) -> &T {
@@ -137,28 +131,33 @@ impl ComponentGroup {
     pub fn get_changes(&self) -> Vec<Change> {
         let mut res = Vec::new();
         for added_component in self.added_components.iter() {
-            res.push(Change::AddComponent(added_component.clone()));
+            res.push(Change(
+                added_component.clone(),
+                ChangeType::AddComponent
+            ));
         }
         for component in self.components.values() {
             if let Some(change) = &component.write_cache {
-                res.push(Change::UpdateComponent(change.clone()));
+                res.push(Change(change.clone(), ChangeType::UpdateComponent));
             }
         }
         for removed_component in self.removed_components.iter() {
-            res.push(Change::RemoveComponent(*removed_component));
-        }
-        if self.removed {
-            res.push(Change::RemoveEntity(self.id));
+            res.push(Change(
+                removed_component.clone(),
+                ChangeType::RemoveComponent,
+            ));
         }
         res
     }
 }
 
-pub enum Change {
-    RemoveComponent(ComponentInstanceId),
-    AddComponent(UntypedComponent),
-    UpdateComponent(UntypedComponent),
-    RemoveEntity(entity_id::EntityId),
+pub struct Change(pub UntypedComponent, pub ChangeType);
+
+
+pub enum ChangeType {
+    RemoveComponent,
+    AddComponent,
+    UpdateComponent,
 }
 pub struct QueriedComponent {
     component: component::UntypedComponent,

@@ -67,13 +67,13 @@ impl PositionMap {
 
 impl resource::Resource for PositionMap {}
 
-pub fn position_hook(change: &query::Change, world: &world::World) {
+pub fn position_hook(change: &query::Change, world: &mut world::World) {
     let position_map = world
         .get_resource::<PositionMap>()
         .expect("PositionMap not found");
     //println!("size {}", position_map.map.lock().unwrap().len());
     match change {
-        query::Change::AddComponent(comp) => {
+        query::Change(comp,query::ChangeType::AddComponent)  => {
             if let Some(position) = comp.get::<base_components::Position>() {
                 position_map.insert(
                     comp.get_instance_id().get_entity_id(),
@@ -81,10 +81,10 @@ pub fn position_hook(change: &query::Change, world: &world::World) {
                 );
             }
         }
-        query::Change::RemoveComponent(comp) => {
-            position_map.remove(comp.get_entity_id());
+        query::Change(comp, query::ChangeType::RemoveComponent) => {
+            position_map.remove(comp.get_instance_id().get_entity_id());
         }
-        query::Change::UpdateComponent(comp) => {
+        query::Change(comp,query::ChangeType::UpdateComponent) => {
             if let Some(position) = comp.get::<base_components::Position>() {
                 position_map.update(
                     comp.get_instance_id().get_entity_id(),
@@ -92,6 +92,5 @@ pub fn position_hook(change: &query::Change, world: &world::World) {
                 );
             }
         }
-        query::Change::RemoveEntity(_) => todo!(),
     }
 }
