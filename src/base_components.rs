@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{component::{self, ComponentType}, entity_id, query, world};
+use crate::{
+    component::{self, ComponentType},
+    entity_id, hook, query, world,
+};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Position {
@@ -34,11 +37,13 @@ pub struct Parent {
 }
 impl component::ComponentType for Parent {}
 
-struct ChildEntityAddComponentHook {}
-
-fn changed_parent_hook(change: &query::Change, w: &mut world::World) -> Vec<query::Change> {
+pub fn changed_children_hook(change: &query::Change, w: &world::World) -> Vec<query::Change> {
     match change {
-        query::Change(comp2, removal_type @ (query::ChangeType::RemoveComponent|  query::ChangeType::UnloadComponent)) => {
+        query::Change(
+            comp2,
+            removal_type
+            @ (query::ChangeType::RemoveComponent | query::ChangeType::UnloadComponent),
+        ) => {
             if let Some(comp) = comp2.get::<Children>() {
                 let mut changes = Vec::new();
                 for child in comp.entities.iter() {
@@ -46,10 +51,7 @@ fn changed_parent_hook(change: &query::Change, w: &mut world::World) -> Vec<quer
                         .iter()
                         .for_each(|comp| {
                             for c in comp.iter() {
-                                changes.push(query::Change(
-                                    c.clone(),
-                                    *removal_type,
-                                ));
+                                changes.push(query::Change(c.clone(), *removal_type));
                             }
                         });
                 }
@@ -58,21 +60,32 @@ fn changed_parent_hook(change: &query::Change, w: &mut world::World) -> Vec<quer
                 Vec::new()
             }
         }
-        query::Change(comp, query::ChangeType::AddComponent|query::ChangeType::UpdateComponent) => {
+        query::Change(
+            comp,
+            query::ChangeType::AddComponent | query::ChangeType::UpdateComponent,
+        ) => {
             if let Some(comp2) = comp.get::<Children>() {
                 let mut changes = Vec::new();
                 for child in comp2.entities.iter() {
                     //if the child already has a parent, replace it
-                    if let Some(child_parent) = w.get_component_by_instance_id(component::ComponentInstanceId::new::<Parent>(*child)) {
+                    if let Some(child_parent) = w.get_component_by_instance_id(
+                        component::ComponentInstanceId::new::<Parent>(*child),
+                    ) {
                         //update the parent of the child
                         changes.push(query::Change(
-                            (Parent { entity : comp.get_instance_id().get_entity_id() }).into_untyped(child_parent.get_instance_id().get_entity_id()),
+                            (Parent {
+                                entity: comp.get_instance_id().get_entity_id(),
+                            })
+                            .into_untyped(child_parent.get_instance_id().get_entity_id()),
                             query::ChangeType::UpdateComponent,
                         ));
                     } else {
                         //add the parent to the child
                         changes.push(query::Change(
-                            (Parent { entity : comp.get_instance_id().get_entity_id() }).into_untyped(*child),
+                            (Parent {
+                                entity: comp.get_instance_id().get_entity_id(),
+                            })
+                            .into_untyped(*child),
                             query::ChangeType::AddComponent,
                         ));
                     }

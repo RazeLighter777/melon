@@ -52,7 +52,7 @@ pub trait ComponentType:
     serde::de::DeserializeOwned + Serialize + Any + Send + Sync + Clone
 {
     fn initialize(&mut self, _builder: &mut entity_builder::EntityBuilder) {}
-    fn into_untyped(self, id : entity_id::EntityId) -> UntypedComponent {
+    fn into_untyped(self, id: entity_id::EntityId) -> UntypedComponent {
         UntypedComponent::new(self, id)
     }
 }

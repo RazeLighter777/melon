@@ -1,11 +1,11 @@
 use std::sync::{Arc, Mutex};
 
 use crate::{
-    component, entity_builder,
+    base_components, component, entity_builder,
     entity_id::{self},
     hook::{self, ChangeHook},
     query::{self, Change},
-    resource, stage, base_components,
+    resource, stage,
 };
 use hashbrown::{HashMap, HashSet};
 use rayon::prelude::*;
@@ -31,8 +31,8 @@ pub struct World {
     components_types: HashMap<component::ComponentTypeId, HashSet<entity_id::EntityId>>,
     resources: HashMap<u64, resource::UntypedResource>,
     //change_trackers: HashMap<component::ComponentTypeId, Vec<component::ComponentInstanceId>>,
-    hooks: HashMap<Option<component::ComponentTypeId>, Vec<Arc<hook::ChangeHook>>>,
     loader: Option<Arc<Mutex<Box<dyn hook::Loader>>>>,
+    hooks: Vec<ChangeHook>,
     unloader: Option<Arc<Mutex<Box<dyn hook::Unloader>>>>,
 }
 
@@ -95,7 +95,7 @@ impl World {
             entities: HashMap::new(),
             components_types: HashMap::new(),
             resources: HashMap::new(),
-            hooks: HashMap::new(),
+            hooks : Vec::new(),
             loader: None,
             unloader: None,
         }
@@ -112,9 +112,11 @@ impl World {
         &self,
         id: entity_id::EntityId,
     ) -> Option<Vec<component::UntypedComponent>> {
-        self.entities
-            .get(&id)
-            .map(|x| x.iter().map(|x| self.components.get(x).unwrap().clone()).collect())
+        self.entities.get(&id).map(|x| {
+            x.iter()
+                .map(|x| self.components.get(x).unwrap().clone())
+                .collect()
+        })
     }
 
     pub fn get_resource<R: resource::Resource + 'static>(&self) -> Option<&R> {
@@ -132,8 +134,7 @@ impl World {
                 system.execute(&mut query_result, self);
                 query_result.get_changes()
             })
-            .flatten()
-            .collect::<Vec<_>>();
+            .flatten().collect::<Vec<_>>();
         self.execute_changes(changed);
     }
 
@@ -149,10 +150,40 @@ impl World {
         loaded
     }
 
-    fn execute_changes(&mut self, changed: Vec<Change>) {
-        changed.iter().for_each(|change| {
+    fn execute_changes(&mut self, changed: impl IntoParallelIterator<Item = Change>) {
+        //execute untyped hooks
+        let change_map = Mutex::new(HashMap::new());
+        changed
+        .into_par_iter().for_each(|x| {
+            let mut change_map = change_map.lock().unwrap();
+            change_map.entry(x.0.get_type()).or_insert_with(Vec::new).push(x);
+        });
+        let changed = change_map.into_inner().unwrap();
+        let newchanges = self.hooks.par_iter().map(|hook| {
+            if let Some(ctype) = hook.get_type() {
+                if let Some(changes) = changed.get(&ctype) {
+                    changes.par_iter().map(|x| {
+                        hook.execute(x, self)
+                    }).collect::<Vec<_>>()
+                } else {
+                    Vec::new()
+                }
+            } else {
+                changed.par_iter().map(|x| x.1).flatten().map(|x| {
+                    hook.execute(x, self)
+                }).collect::<Vec<_>>()
+            }
+        }).flatten().flatten().collect::<Vec<_>>();
+        if !newchanges.is_empty() {
+            self.execute_changes(newchanges);
+        }
+        changed.iter().map(|x|  x.1).flatten().for_each(|change| {
             match change {
-                query::Change(comp, query::ChangeType::RemoveComponent|query::ChangeType::UnloadComponent) => {
+                query::Change(
+                    comp,
+                    _removed_or_unloaded @ (query::ChangeType::RemoveComponent
+                    | query::ChangeType::UnloadComponent),
+                ) => {
                     let tid = &&comp.get_type();
                     let eid = &comp.get_instance_id().get_entity_id();
                     let id = &comp.get_instance_id();
@@ -260,16 +291,11 @@ impl WorldBuilder {
         self.world.unloader = Some(Arc::new(Mutex::new(Box::new(unloader))));
         self
     }
-    pub fn with_hook(self, _hook: impl Into<hook::ChangeHook>) -> Self {
-        //self.world.hooks.push(hook.into());
+    pub fn with_hook(mut self, _hook: impl Into<hook::ChangeHook> + Clone + Copy) -> Self {
+        self.world.hooks.push(_hook.into());
         self
     }
     pub fn build(self) -> World {
         self.world
-    }
-}
-impl Into<ChangeHook> for fn(&query::Change, &mut World) -> () {
-    fn into(self) -> ChangeHook {
-        ChangeHook::new(self)
     }
 }

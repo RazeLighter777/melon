@@ -20,6 +20,5 @@ pub mod system;
 pub mod world;
 use mimalloc::MiMalloc;
 
-
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;

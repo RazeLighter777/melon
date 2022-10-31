@@ -42,7 +42,6 @@ impl QueryResult {
             .collect()
     }
     pub fn iter(&mut self) -> std::slice::IterMut<ComponentGroup> {
-        
         self.entities.iter_mut()
     }
 }
@@ -128,10 +127,7 @@ impl ComponentGroup {
     pub fn get_changes(&self) -> Vec<Change> {
         let mut res = Vec::new();
         for added_component in self.added_components.iter() {
-            res.push(Change(
-                added_component.clone(),
-                ChangeType::AddComponent
-            ));
+            res.push(Change(added_component.clone(), ChangeType::AddComponent));
         }
         for component in self.components.values() {
             if let Some(change) = &component.write_cache {
@@ -150,8 +146,7 @@ impl ComponentGroup {
 
 pub struct Change(pub UntypedComponent, pub ChangeType);
 
-
-#[derive(Clone,Copy)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub enum ChangeType {
     RemoveComponent,
     UnloadComponent,
