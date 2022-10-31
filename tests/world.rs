@@ -8,7 +8,7 @@ fn entity_builder_test() {
         .add_entity()
         .with(Position { x: 0, y: 0 })
         .spawn();
-    assert_eq!(world.number_of_entities(), 1);
+    assert_eq!(world.number_of_entities(), 2);
 }
 
 #[test]

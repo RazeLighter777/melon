@@ -251,21 +251,11 @@ impl World {
 impl entity_builder::SpawnLocation for World {
     fn spawn(
         &mut self,
-        entity_id: entity_id::EntityId,
         components: Vec<component::UntypedComponent>,
     ) {
-        for comp in components {
-            let component_instance_id = comp.get_instance_id();
-            self.components.insert(component_instance_id, comp);
-            self.entities
-                .entry(entity_id)
-                .or_insert_with(HashSet::new)
-                .insert_unique_unchecked(component_instance_id);
-            self.components_types
-                .entry(component_instance_id.get_component_type_id())
-                .or_insert_with(HashSet::new)
-                .insert_unique_unchecked(entity_id);
-        }
+        self.execute_changes(components.into_iter().map(|x| {
+            query::Change(x, query::ChangeType::AddComponent)
+        }).collect::<Vec<_>>());
     }
 }
 
