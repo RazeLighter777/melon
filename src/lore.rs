@@ -66,7 +66,7 @@ pub struct LorebookBuilder {
 }
 
 #[derive(Deserialize)]
-pub struct BasicLoreEntry {
+pub(crate) struct BasicLoreEntry {
     pub tags: Vec<String>,
     pub tp: String,
     pub merge: Option<Vec<String>>,

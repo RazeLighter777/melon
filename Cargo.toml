@@ -17,6 +17,7 @@ typenum = "1.15.0"
 mimalloc = { version = "*", default-features = false }
 rtree_rs = "*"
 sled = "0.34.7"
+parking_lot = "0.12.1"
 rstar = "*"
 [dependencies.clap]
 features = ["derive"]

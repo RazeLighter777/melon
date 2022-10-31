@@ -88,6 +88,11 @@ impl ComponentGroup {
             None => None,
         }
     }
+    pub fn remove_all(&mut self) {
+        self.removed_components
+            .extend(self.components.values().map(|x| x.component.clone()));
+        self.components.clear();
+    }
     pub fn get_id(&self) -> entity_id::EntityId {
         self.id
     }

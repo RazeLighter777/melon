@@ -1,11 +1,12 @@
 use crate::{component, entity_id, query, world};
 
-#[derive(Clone, Copy)]
-pub struct ChangeHook {
+pub(crate) struct ChangeHook {
     closure: HookLambda,
     component_type: Option<component::ComponentTypeId>,
 }
-pub type HookLambda = fn(&query::Change, &world::World) -> Vec<query::Change>;
+pub type HookLambda  = fn(&query::Change, &world::World) -> Vec<query::Change>;
+
+
 impl ChangeHook {
     pub fn new(closure: HookLambda) -> Self {
         Self {

@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 
 use crate::{
     component, entity_builder,
@@ -29,7 +29,7 @@ pub struct World {
     components: HashMap<component::ComponentInstanceId, component::UntypedComponent>,
     entities: HashMap<entity_id::EntityId, HashSet<component::ComponentInstanceId>>,
     components_types: HashMap<component::ComponentTypeId, HashSet<entity_id::EntityId>>,
-    resources: HashMap<u64, resource::UntypedResource>,
+    resources: HashMap<u64, Arc::<RwLock::<resource::UntypedResource>>>,
     //change_trackers: HashMap<component::ComponentTypeId, Vec<component::ComponentInstanceId>>,
     loader: Option<Arc<Mutex<Box<dyn hook::Loader>>>>,
     hooks: Vec<ChangeHook>,
@@ -119,14 +119,26 @@ impl World {
         })
     }
 
-    pub fn get_resource<R: resource::Resource + 'static>(&self) -> Option<&R> {
-        self.resources
-            .get(&resource::get_resource_id::<R>())
-            .map(|x| x.get_as().unwrap())
-    }
-
     pub fn number_of_entities(&self) -> usize {
         self.entities.len()
+    }
+
+    pub fn read_resource<R: resource::Resource + 'static, ReturnType>(&self, closure : impl FnOnce(&R) -> ReturnType) -> Result<ReturnType, ()> {
+        if let Some(resource) = self.resources.get(&resource::get_resource_id::<R>()) {
+            let resource = resource.read().unwrap();
+            Ok(closure(resource.get_as::<R>()))
+        } else {
+            Err(())
+        }
+    }
+
+    pub fn write_resource<R: resource::Resource + 'static, ReturnType>(&self, closure : impl FnOnce(&mut R) -> ReturnType) -> Result<ReturnType, ()> {
+        if let Some(resource) = self.resources.get(&resource::get_resource_id::<R>()) {
+            let mut resource = resource.write().unwrap();
+            Ok(closure(resource.get_as_mut::<R>()))
+        } else {
+            Err(())
+        }
     }
 
     pub fn execute_stage(&mut self, stage: &stage::Stage) {
@@ -271,7 +283,7 @@ impl WorldBuilder {
     pub fn with_resource<R: resource::Resource + 'static>(mut self, resource: R) -> Self {
         self.world.resources.insert(
             resource::get_resource_id::<R>(),
-            resource::UntypedResource::new(resource),
+            Arc::new(RwLock::new(resource::UntypedResource::new(resource))),
         );
         self
     }
@@ -283,8 +295,15 @@ impl WorldBuilder {
         self.world.unloader = Some(Arc::new(Mutex::new(Box::new(unloader))));
         self
     }
-    pub fn with_hook(mut self, _hook: impl Into<hook::ChangeHook> + Clone + Copy) -> Self {
-        self.world.hooks.push(_hook.into());
+    pub fn with_hook(mut self, _hook: hook::HookLambda) -> Self {
+        self.world.hooks.push(hook::ChangeHook::new(_hook));
+        self
+    }
+    pub fn with_typed_hook<T: component::ComponentType + 'static>(
+        mut self,
+        _hook: hook::HookLambda,
+    ) -> Self {
+        self.world.hooks.push(hook::ChangeHook::new_typed::<T>(_hook));
         self
     }
     pub fn build(self) -> World {

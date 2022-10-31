@@ -44,12 +44,9 @@ fn position_map_test(b: &mut Bencher) {
         .build();
     b.iter(|| {
         world.execute_stage(&stage1);
-        // println!(
-        //     "list : {:?}",
-        //     world
-        //         .get_resource::<position_map::PositionMap>()
-        //         .unwrap()
-        //         .get_nearest([0, 0], 30)
-        // );
+        world.read_resource(|position_map: &position_map::PositionMap| {
+            position_map.get_nearest([0, 0], 10)
+        }).unwrap();
+        
     })
 }
