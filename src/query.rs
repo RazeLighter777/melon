@@ -1,7 +1,7 @@
 use hashbrown::{HashMap, HashSet};
 
 use crate::{
-    component::{self, ComponentInstanceId, ComponentType, ComponentTypeId, UntypedComponent},
+    component::{self, ComponentType, ComponentTypeId, UntypedComponent},
     entity_id,
 };
 
@@ -42,8 +42,8 @@ impl QueryResult {
             .collect()
     }
     pub fn iter(&mut self) -> std::slice::IterMut<ComponentGroup> {
-        let i = self.entities.iter_mut();
-        i
+        
+        self.entities.iter_mut()
     }
 }
 
@@ -121,11 +121,8 @@ impl ComponentGroup {
     pub fn set<T: ComponentType>(&mut self, c: T) {
         let component_type_id = component::get_type_id::<T>();
         let component = self.components.get_mut(&component_type_id);
-        match component {
-            Some(comp) => {
-                comp.set(c);
-            }
-            None => {}
+        if let Some(comp) = component {
+            comp.set(c);
         }
     }
     pub fn get_changes(&self) -> Vec<Change> {

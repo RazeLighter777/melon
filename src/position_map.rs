@@ -51,7 +51,7 @@ impl PositionMap {
         n: usize,
     ) -> Vec<(entity_id::EntityId, [i32; 2])> {
         let lk = self.map.lock().unwrap();
-        let nearest = lk.nearby(|rect, p| {
+        let nearest = lk.nearby(|rect, _p| {
             //euclidean distances
             let min = position;
             let max = rect.max;

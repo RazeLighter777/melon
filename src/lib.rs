@@ -19,7 +19,7 @@ pub mod stage;
 pub mod system;
 pub mod world;
 use mimalloc::MiMalloc;
-use sled;
+
 
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;

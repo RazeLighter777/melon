@@ -121,7 +121,7 @@ impl LorebookBuilder {
             self.lorebook
                 .tables
                 .entry(tag.clone())
-                .or_insert(HashSet::new())
+                .or_default()
                 .insert(hash);
         }
         self.lorebook.entries.insert(hash, entry);
@@ -132,14 +132,14 @@ impl LorebookBuilder {
         if path.is_dir() {
             //loops through every file in directory
             let mut jsons: HashMap<u64, Value> = HashMap::new();
-            for entry in std::fs::read_dir(path).map_err(|x| LoreError::IOError(x))? {
-                let entry = entry.map_err(|x| LoreError::IOError(x))?;
+            for entry in std::fs::read_dir(path).map_err(LoreError::IOError)? {
+                let entry = entry.map_err(LoreError::IOError)?;
                 let path = entry.path();
                 if path.is_file() {
-                    let file = std::fs::File::open(path).map_err(|x| LoreError::IOError(x))?;
+                    let file = std::fs::File::open(path).map_err(LoreError::IOError)?;
                     let reader = std::io::BufReader::new(file);
                     let contents: Value =
-                        serde_json::from_reader(reader).map_err(|x| LoreError::JSONError(x))?;
+                        serde_json::from_reader(reader).map_err(LoreError::JSONError)?;
                     let basic_info = serde_json::from_value::<BasicLoreEntry>(contents.clone())
                         .map_err(|x| LoreError::LoreMissingTag(x.to_string()))?;
                     jsons.insert(Tags::new().with_all(&basic_info.tags).hash(), contents);
@@ -207,10 +207,8 @@ impl Lorebook {
                         x.clone().insert(*y);
                         x
                     }));
-                } else {
-                    if let Some(h) = self.tables.get(t) {
-                        hashes = Some(h.clone());
-                    }
+                } else if let Some(h) = self.tables.get(t) {
+                    hashes = Some(h.clone());
                 }
             }
         }

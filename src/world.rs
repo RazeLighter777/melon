@@ -1,11 +1,11 @@
 use std::sync::{Arc, Mutex};
 
 use crate::{
-    base_components, component, entity_builder,
+    component, entity_builder,
     entity_id::{self},
     hook::{self, ChangeHook},
     query::{self, Change},
-    resource, stage,
+    resource, stage, base_components,
 };
 use hashbrown::{HashMap, HashSet};
 use rayon::prelude::*;
@@ -260,7 +260,7 @@ impl WorldBuilder {
         self.world.unloader = Some(Arc::new(Mutex::new(Box::new(unloader))));
         self
     }
-    pub fn with_hook(mut self, hook: impl Into<hook::ChangeHook>) -> Self {
+    pub fn with_hook(self, _hook: impl Into<hook::ChangeHook>) -> Self {
         //self.world.hooks.push(hook.into());
         self
     }
