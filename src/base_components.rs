@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     component::{self, ComponentType},
-    entity_id, hook, query, world,
+    entity_id, query, world,
 };
 
 #[derive(Clone, Serialize, Deserialize)]

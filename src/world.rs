@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex};
 
 use crate::{
-    base_components, component, entity_builder,
+    component, entity_builder,
     entity_id::{self},
     hook::{self, ChangeHook},
     query::{self, Change},
@@ -125,6 +125,10 @@ impl World {
             .map(|x| x.get_as().unwrap())
     }
 
+    pub fn number_of_entities(&self) -> usize {
+        self.entities.len()
+    }
+
     pub fn execute_stage(&mut self, stage: &stage::Stage) {
         //println!("Executing");
         let changed = stage
@@ -244,27 +248,15 @@ impl entity_builder::SpawnLocation for World {
             self.entities
                 .entry(entity_id)
                 .or_insert_with(HashSet::new)
-                .insert(component_instance_id);
+                .insert_unique_unchecked(component_instance_id);
             self.components_types
                 .entry(component_instance_id.get_component_type_id())
                 .or_insert_with(HashSet::new)
-                .insert(entity_id);
+                .insert_unique_unchecked(entity_id);
         }
     }
 }
 
-#[test]
-fn entity_builder_test() {
-    let mut world = WorldBuilder::new().build();
-    world
-        .add_entity()
-        .with(base_components::Position { x: 0, y: 0 })
-        .spawn();
-    assert_eq!(world.entities.len(), 1);
-}
-
-#[test]
-fn query_test() {}
 
 pub struct WorldBuilder {
     world: World,

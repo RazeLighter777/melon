@@ -3,7 +3,6 @@ use serde::Deserialize;
 
 #[derive(Deserialize)]
 struct TestLore {
-    name: String,
     value: i32,
 }
 
@@ -29,6 +28,7 @@ fn lore_get() -> () {
             .value,
         32
     );
+
 }
 
 #[test]

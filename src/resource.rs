@@ -3,17 +3,17 @@ use std::{any::Any, sync::Arc};
 use crate::hashing;
 pub trait Resource: Send + Sync {}
 
-pub struct UntypedResource {
+pub(crate) struct UntypedResource {
     data: Arc<Box<dyn Any + Send + Sync>>,
 }
 
 impl UntypedResource {
-    pub fn new<T: Resource + 'static>(data: T) -> UntypedResource {
+    pub(crate) fn new<T: Resource + 'static>(data: T) -> UntypedResource {
         UntypedResource {
             data: Arc::new(Box::new(data)),
         }
     }
-    pub fn get_as<T: Resource + 'static>(&self) -> Option<&T> {
+    pub(crate) fn get_as<T: Resource + 'static>(&self) -> Option<&T> {
         self.data.downcast_ref::<T>()
     }
 }

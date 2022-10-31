@@ -88,6 +88,9 @@ impl ComponentGroup {
             None => None,
         }
     }
+    pub fn get_id(&self) -> entity_id::EntityId {
+        self.id
+    }
     pub fn remove<T: ComponentType>(&mut self) {
         let component_type_id = component::get_type_id::<T>();
         let component = self.components.get(&component_type_id);

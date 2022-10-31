@@ -1,5 +1,4 @@
 {
-    "name" : "bob",
     "value" : 32,
     "tp" : "lore::TestLore",
     "tags" : ["tag1", "tag2"]

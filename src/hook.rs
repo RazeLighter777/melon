@@ -19,10 +19,10 @@ impl ChangeHook {
             component_type: Some(component::get_type_id::<T>()),
         }
     }
-    pub fn execute(&self, change: &query::Change, world: &world::World) -> Vec<query::Change> {
+    pub(crate) fn execute(&self, change: &query::Change, world: &world::World) -> Vec<query::Change> {
         (self.closure)(change, world)
     }
-    pub fn get_type(&self) -> Option<component::ComponentTypeId> {
+    pub(crate) fn get_type(&self) -> Option<component::ComponentTypeId> {
         self.component_type
     }
 }

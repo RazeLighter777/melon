@@ -15,7 +15,7 @@ impl system::System for TestSystem {
     fn execute(
         &self,
         query_result: &mut query::QueryResult,
-        world: &world::World,
+        _world: &world::World,
     ) -> commands::Command {
         for e in query_result.iter() {
             e.set::<base_components::Position>(base_components::Position {
@@ -44,12 +44,12 @@ fn position_map_test(b: &mut Bencher) {
         .build();
     b.iter(|| {
         world.execute_stage(&stage1);
-        println!(
-            "list : {:?}",
-            world
-                .get_resource::<position_map::PositionMap>()
-                .unwrap()
-                .get_nearest([0, 0], 30)
-        );
+        // println!(
+        //     "list : {:?}",
+        //     world
+        //         .get_resource::<position_map::PositionMap>()
+        //         .unwrap()
+        //         .get_nearest([0, 0], 30)
+        // );
     })
 }
