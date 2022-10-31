@@ -37,7 +37,7 @@ pub struct Parent {
 }
 impl component::ComponentType for Parent {}
 
-pub fn changed_children_hook(change: &query::Change, w: &world::World) -> Vec<query::Change> {
+pub(crate) fn changed_children_hook(change: &query::Change, w: &world::World) -> Vec<query::Change> {
     match change {
         query::Change(
             comp2,
