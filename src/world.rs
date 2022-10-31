@@ -114,7 +114,7 @@ impl World {
     ) -> Option<Vec<component::UntypedComponent>> {
         self.entities
             .get(&id)
-            .map(|x| x.iter().map(|x| *self.components.get(x).unwrap()).collect())
+            .map(|x| x.iter().map(|x| self.components.get(x).unwrap().clone()).collect())
     }
 
     pub fn get_resource<R: resource::Resource + 'static>(&self) -> Option<&R> {
@@ -152,7 +152,7 @@ impl World {
     fn execute_changes(&mut self, changed: Vec<Change>) {
         changed.iter().for_each(|change| {
             match change {
-                query::Change(comp, query::ChangeType::RemoveComponent) => {
+                query::Change(comp, query::ChangeType::RemoveComponent|query::ChangeType::UnloadComponent) => {
                     let tid = &&comp.get_type();
                     let eid = &comp.get_instance_id().get_entity_id();
                     let id = &comp.get_instance_id();

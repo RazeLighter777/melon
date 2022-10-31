@@ -3,6 +3,7 @@ name = "melon"
 version = "0.1.0"
 edition = "2021"
 bench = true
+
 [dependencies]
 const-fnv1a-hash = "1.0.1"
 serde_json = "1.0"
@@ -14,8 +15,9 @@ rand = "0.8.5"
 rayon = "1.5.3"
 typenum = "1.15.0"
 mimalloc = { version = "*", default-features = false }
-rtree_rs = "0.1.2"
+rtree_rs = "*"
 sled = "0.34.7"
+rstar = "*"
 [dependencies.clap]
 features = ["derive"]
 version = "3.1.18"

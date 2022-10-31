@@ -94,7 +94,7 @@ impl ComponentGroup {
         let component = self.components.get(&component_type_id);
         match component {
             Some(_component) => {
-                self.removed_components.push(_component.component);
+                self.removed_components.push(_component.component.clone());
             }
             None => (),
         }
@@ -154,8 +154,10 @@ impl ComponentGroup {
 pub struct Change(pub UntypedComponent, pub ChangeType);
 
 
+#[derive(Clone,Copy)]
 pub enum ChangeType {
     RemoveComponent,
+    UnloadComponent,
     AddComponent,
     UpdateComponent,
 }

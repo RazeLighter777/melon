@@ -81,7 +81,7 @@ pub fn position_hook(change: &query::Change, world: &mut world::World) {
                 );
             }
         }
-        query::Change(comp, query::ChangeType::RemoveComponent) => {
+        query::Change(comp, query::ChangeType::RemoveComponent|query::ChangeType::UnloadComponent) => {
             position_map.remove(comp.get_instance_id().get_entity_id());
         }
         query::Change(comp,query::ChangeType::UpdateComponent) => {
