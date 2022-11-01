@@ -1,4 +1,4 @@
-use std::{any::Any, fmt::Display, sync::Arc};
+use std::{any::Any, fmt::Display, sync::Arc, ops::{Deref, DerefMut}};
 
 use serde::{Deserialize, Serialize};
 
@@ -72,6 +72,12 @@ impl UntypedComponent {
     pub fn get<T: ComponentType + 'static>(&self) -> Option<&T> {
         self.internal.data.downcast_ref::<T>()
     }
+    pub fn is_unqiue(&self) -> bool {
+        Arc::<_>::strong_count(&self.internal) == 1
+    }
+    pub fn make_mut<T: ComponentType + 'static>(&mut self) -> &mut T {
+        todo!()
+    }
     pub fn get_unchecked<T: ComponentType + 'static>(&self) -> &T {
         self.internal.data.downcast_ref::<T>().unwrap()
     }
@@ -98,5 +104,69 @@ impl UntypedComponent {
 impl Display for ComponentTypeId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "type<{:X}>", self.0)
+    }
+}
+
+enum TypedComponentInternal<T: ComponentType> {
+    Unchanged(UntypedComponent),
+    Changed(T, ComponentInstanceId),
+}
+
+pub struct TypedComponent<T: ComponentType> {
+    internal :  TypedComponentInternal<T>,
+}
+
+impl<T: ComponentType> TypedComponent<T> {
+    pub(crate) fn new(component:  UntypedComponent) -> Self {
+        TypedComponent {
+            internal : TypedComponentInternal::Unchanged(component),
+        }
+    }
+    pub fn get(&self) -> &T {
+        match &self.internal {
+            TypedComponentInternal::Unchanged(c) => c.get_unchecked::<T>(),
+            TypedComponentInternal::Changed(c, _) => c,
+        }
+    }
+    pub fn make_mut(&mut self) -> &mut T {
+        match &mut self.internal {
+            TypedComponentInternal::Unchanged(c) => {
+                self.internal = TypedComponentInternal::Changed(c.get::<T>().cloned().unwrap(), c.get_instance_id());
+                self.make_mut()
+            }
+            TypedComponentInternal::Changed(c, _) => c,
+        }
+    }
+    pub fn get_type(&self) -> ComponentTypeId {
+        match self.internal {
+            TypedComponentInternal::Unchanged(c) => c.get_type(),
+            TypedComponentInternal::Changed(_, id) => id.get_component_type_id(),
+        }
+    }
+    pub fn get_entity_id(&self) -> entity_id::EntityId {
+        match self.internal {
+            TypedComponentInternal::Unchanged(c) => c.get_entity_id(),
+            TypedComponentInternal::Changed(_, id) => id.get_entity_id(),
+        }
+    }
+    pub fn get_instance_id(&self) -> ComponentInstanceId {
+        match self.internal {
+            TypedComponentInternal::Unchanged(c) => c.get_instance_id(),
+            TypedComponentInternal::Changed(_, id) => id,
+        }
+    }
+}
+
+impl<T: ComponentType> Deref for TypedComponent< T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        self.get()
+    }
+}
+
+impl< T: ComponentType> DerefMut for TypedComponent<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.make_mut()
     }
 }
