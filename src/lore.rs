@@ -66,7 +66,7 @@ pub struct Lorebook {
 
 impl resource::Resource for Lorebook {}
 
-type LoreEntryDeserializer =  fn(serde_json::Value) -> Result<LoreEntry, LoreError>;
+type LoreEntryDeserializer = fn(serde_json::Value) -> Result<LoreEntry, LoreError>;
 
 pub struct LorebookBuilder {
     lorebook: Lorebook,

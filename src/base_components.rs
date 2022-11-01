@@ -70,24 +70,18 @@ pub(crate) fn changed_children_hook(
             if let Some(comp2) = comp.get::<Children>() {
                 let mut changes = Vec::new();
                 for child in comp2.entities.iter() {
-                    //if the child already has a parent, replace it
-                    if let Some(child_parent) = w.get_component_by_instance_id(
-                        component::ComponentInstanceId::new::<Parent>(*child),
-                    ) {
-                        //remove the child from the old parent's children
+                    //if the child already has a parent, replace it as long as it is incorrect
+                    if let Some(child_parent) = w.get_component::<Parent>(*child) && child_parent.entity != comp.get_entity_id() {
                         changes.push(query::Change(
-                            child_parent.clone(),
-                            query::ChangeType::RemoveComponent,
-                        ));
-                        //update the parent of the child
-                        changes.push(query::Change(
-                            (Parent {
-                                entity: comp.get_instance_id().get_entity_id(),
-                            })
-                            .into_untyped(child_parent.get_instance_id().get_entity_id()),
+                            component::UntypedComponent::new(
+                                Parent {
+                                    entity: comp.get_instance_id().get_entity_id(),
+                                },
+                                *child,
+                            ),
                             query::ChangeType::UpdateComponent,
                         ));
-
+                    //if the child doesn't have a parent, add one
                     } else {
                         //add the parent to the child
                         changes.push(query::Change(
@@ -104,5 +98,58 @@ pub(crate) fn changed_children_hook(
                 Vec::new()
             }
         }
+    }
+}
+
+pub(crate) fn changed_parent_hook(change: &query::Change, w: &world::World) -> Vec<query::Change> {
+    match change {
+        query::Change(
+            comp,
+            query::ChangeType::RemoveComponent | query::ChangeType::UnloadComponent,
+        ) => {
+            if let Some(comp2) = comp.get::<Parent>() {
+                let mut changes = Vec::new();
+                if let Some(children) = w.get_component::<Children>(comp2.entity) && children.entities.contains(&comp.get_instance_id().get_entity_id()) {
+                    changes.push(query::Change(
+                        (Children {
+                            entities: children
+                                .entities
+                                .iter()
+                                .filter(|e| **e != comp.get_instance_id().get_entity_id())
+                                .cloned()
+                                .collect(),
+                        })
+                        .into_untyped(comp2.entity),
+                        query::ChangeType::UpdateComponent,
+                    ));
+                }
+                changes
+            } else {
+                Vec::new()
+            }
+        }
+        //update the parent of the child
+        query::Change(comp, query::ChangeType::UpdateComponent) => {
+            let mut changes = Vec::new();
+            //remove the old one
+            if let Some(comp2) = comp.get::<Parent>() {
+                if let Some(children) = w.get_component::<Children>(comp2.entity) && children.entities.contains(&comp.get_entity_id()) {
+                    changes.push(query::Change(
+                        (Children {
+                            entities: children
+                                .entities
+                                .iter()
+                                .filter(|e| **e != comp.get_instance_id().get_entity_id())
+                                .cloned()
+                                .collect(),
+                        })
+                        .into_untyped(comp2.entity),
+                        query::ChangeType::UpdateComponent,
+                    ));
+                }
+            }
+            changes
+        }
+        _ => Vec::new(),
     }
 }

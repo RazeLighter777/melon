@@ -23,7 +23,7 @@ impl system::System for TestSystem {
                 y: e.get_unchecked::<base_components::Position>().y + 1,
             });
         }
-        commands::Command {}
+        commands::Command::new()
     }
 }
 

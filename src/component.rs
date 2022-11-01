@@ -78,6 +78,9 @@ impl UntypedComponent {
     pub fn get_type(&self) -> ComponentTypeId {
         self.internal.component_type_id
     }
+    pub fn get_entity_id(&self) -> entity_id::EntityId {
+        self.internal.instance_id.get_entity_id()
+    }
     pub fn get_instance_id(&self) -> ComponentInstanceId {
         self.internal.instance_id
     }

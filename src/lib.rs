@@ -1,6 +1,7 @@
 #![feature(const_type_name)]
 #![feature(associated_type_bounds)]
 #![feature(test)]
+#![feature(let_chains)]
 extern crate test;
 pub mod archetype;
 pub mod base_components;

@@ -34,11 +34,19 @@ fn parent() {
             entities: vec![child],
         })
         .spawn();
-        assert_eq!(
-            world
-                .get_component::<base_components::Parent>(child)
-                .unwrap()
-                .entity,
-            parent2
-        );
+    assert_eq!(
+        world
+            .get_component::<base_components::Parent>(child)
+            .unwrap()
+            .entity,
+        parent2
+    );
+    world.remove_entity(parent2);
+    assert_eq!(
+        world
+            .get_component::<base_components::Parent>(child).is_none(),
+        true
+    );
+    //one entity should be left
+    assert_eq!(world.number_of_entities(), 1);
 }

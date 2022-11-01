@@ -281,6 +281,16 @@ impl World {
     pub fn add_entity(&mut self) -> entity_builder::EntityBuilder {
         entity_builder::EntityBuilder::new(self)
     }
+
+    pub fn remove_entity(&mut self, id: entity_id::EntityId) {
+        if let Some(set) = self.entities.get(&id) {
+            let changes = set
+                .iter()
+                .map(|x| query::Change(self.components.get(x).unwrap().clone(), query::ChangeType::RemoveComponent))
+                .collect::<Vec<_>>();
+            self.execute_changes(changes);
+        }
+    }
 }
 
 impl entity_builder::SpawnLocation for World {
