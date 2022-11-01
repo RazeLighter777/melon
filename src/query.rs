@@ -117,10 +117,14 @@ impl <'a, T: ComponentType> Drop for TypedComponentWriteback<'a, T> {
 }
 
 impl ComponentGroup {
-    pub fn get<T: ComponentType>(&self) -> Option<component::TypedComponent<T>> {
+    pub fn get<T: ComponentType>(&mut self) -> Option<TypedComponentWriteback<T>> {
         self.components
             .get(&component::get_type_id::<T>())
-            .map(|x| component::TypedComponent::new(x.clone()))
+            .cloned()
+            .map(|x| TypedComponentWriteback {
+                component: TypedComponent::new(x.clone()),
+                group : self,
+            })
     }
     pub fn get_id(&self) -> entity_id::EntityId {
         self.id
@@ -141,7 +145,7 @@ impl ComponentGroup {
         self.components
             .iter()
             .filter(|(_, component)| component.is_unqiue())
-            .map(|(type_id, component)| Change(component.clone(), ChangeType::UpdateComponent))
+            .map(|(_, component)| Change(component.clone(), ChangeType::UpdateComponent))
             .collect()
     }
 }
@@ -156,5 +160,3 @@ pub enum ChangeType {
     UpdateComponent,
 }
 
-#[test]
-pub fn test_query() {}

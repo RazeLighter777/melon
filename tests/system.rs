@@ -3,7 +3,6 @@
 #![feature(test)]
 extern crate test;
 use melon::*;
-use test::Bencher;
 
 struct TestSystem {}
 impl system::System for TestSystem {
@@ -17,6 +16,8 @@ impl system::System for TestSystem {
         query_result: &mut query::QueryResult,
         _world: &world::World,
     ) -> commands::Command {
+        println!("Bitch");
+
         for e in query_result.iter() {
             e.get::<base_components::Position>().unwrap().x += 1;
         }
@@ -24,27 +25,19 @@ impl system::System for TestSystem {
     }
 }
 
-#[bench]
-fn position_map_test(b: &mut Bencher) {
+#[test]
+fn system() {
     let mut world = default_world::DefaultWorld::get().build();
-    for i in 0..10000 {
-        world
-            .add_entity()
-            .with(base_components::Position { x: i, y: 0 })
-            .with(base_components::Name {
-                name: "test".to_string(),
-            })
-            .spawn();
-    }
+    let x = world
+        .add_entity()
+        .with(base_components::Position { x: 0, y: 0 })
+        .with(base_components::Name {
+            name: "test".to_string(),
+        })
+        .spawn();
     let stage1 = stage::StageBuilder::new()
         .with_system(TestSystem {})
         .build();
-    b.iter(|| {
-        world.execute_stage(&stage1);
-        world
-            .read_resource(|position_map: &position_map::PositionMap| {
-                position_map.get_nearest([0, 0], 10)
-            })
-            .unwrap();
-    })
+    world.execute_stage(&stage1);
+    assert_eq!(world.get_component::<base_components::Position>(x).unwrap().x, 1);
 }
