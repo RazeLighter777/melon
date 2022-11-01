@@ -24,7 +24,8 @@ impl PositionMap {
     }
     fn update(&mut self, id: entity_id::EntityId, position: [i32; 2]) {
         if let Some(old_position) = self.entity_to_position.get(&id) {
-            self.map.remove(rtree_rs::Rect::new_point(*old_position), &id);
+            self.map
+                .remove(rtree_rs::Rect::new_point(*old_position), &id);
             self.map.insert(rtree_rs::Rect::new_point(position), id);
             self.entity_to_position.insert(id, position);
         } else {
@@ -58,37 +59,48 @@ impl PositionMap {
 impl resource::Resource for PositionMap {}
 
 pub fn position_hook(change: &query::Change, world: &world::World) -> Vec<query::Change> {
-    
     //println!("size {}", position_map.map.lock().unwrap().len());
     match change {
         query::Change(comp, query::ChangeType::AddComponent) => {
             if let Some(position) = comp.get::<base_components::Position>() {
-                world.write_resource(|position_map: &mut PositionMap| {
-                    position_map.insert(
-                        comp.get_instance_id().get_entity_id(),
-                        [position.x, position.y],
-                    );
-                }).expect("position map not found");
+                world
+                    .write_resource(|position_map: &mut PositionMap| {
+                        position_map.insert(
+                            comp.get_instance_id().get_entity_id(),
+                            [position.x, position.y],
+                        );
+                    })
+                    .expect("position map not found");
             }
         }
         query::Change(
             comp,
             query::ChangeType::RemoveComponent | query::ChangeType::UnloadComponent,
         ) => {
-            world.write_resource(|position_map: &mut PositionMap| {
-                position_map.remove(comp.get_instance_id().get_entity_id());
-            }).expect("position map not found");
+            world
+                .write_resource(|position_map: &mut PositionMap| {
+                    position_map.remove(comp.get_instance_id().get_entity_id());
+                })
+                .expect("position map not found");
         }
         query::Change(comp, query::ChangeType::UpdateComponent) => {
             if let Some(position) = comp.get::<base_components::Position>() {
-                world.write_resource(|position_map: &mut PositionMap| {
-                    position_map.update(
-                        comp.get_instance_id().get_entity_id(),
-                        [position.x, position.y],
-                    );
-                }).expect("position map not found");
+                world
+                    .write_resource(|position_map: &mut PositionMap| {
+                        position_map.update(
+                            comp.get_instance_id().get_entity_id(),
+                            [position.x, position.y],
+                        );
+                    })
+                    .expect("position map not found");
             }
         }
     }
     Vec::new()
+}
+
+impl Default for PositionMap {
+    fn default() -> Self {
+        Self::new()
+    }
 }

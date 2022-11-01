@@ -8,7 +8,7 @@ use test::Bencher;
 #[bench]
 fn insert_test(b: &mut Bencher) {
     b.iter(|| {
-        let mut world = default_world::DefaultWorld::new().build();
+        let mut world = default_world::DefaultWorld::get().build();
         for _ in 0..10000 {
             world
                 .add_entity()

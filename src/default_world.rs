@@ -5,7 +5,7 @@ use crate::world;
 pub struct DefaultWorld {}
 
 impl DefaultWorld {
-    pub fn new() -> world::WorldBuilder {
+    pub fn get() -> world::WorldBuilder {
         world::WorldBuilder::new()
             .with_resource(position_map::PositionMap::new())
             .with_typed_hook::<base_components::Position>(position_map::position_hook)

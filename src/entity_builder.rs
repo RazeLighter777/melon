@@ -1,10 +1,7 @@
 use crate::{component, entity_id};
 
 pub trait SpawnLocation {
-    fn spawn(
-        &mut self,
-        components: Vec<component::UntypedComponent>,
-    );
+    fn spawn(&mut self, components: Vec<component::UntypedComponent>);
 }
 pub struct EntityBuilder<'spawner> {
     spawn_location: &'spawner mut dyn SpawnLocation,

@@ -59,7 +59,7 @@ pub trait ComponentType:
 
 #[derive(Clone)]
 pub struct UntypedComponent {
-    internal : Arc<UntypedComponentInternal>
+    internal: Arc<UntypedComponentInternal>,
 }
 
 struct UntypedComponentInternal {

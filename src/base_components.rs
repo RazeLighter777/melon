@@ -37,7 +37,10 @@ pub struct Parent {
 }
 impl component::ComponentType for Parent {}
 
-pub(crate) fn changed_children_hook(change: &query::Change, w: &world::World) -> Vec<query::Change> {
+pub(crate) fn changed_children_hook(
+    change: &query::Change,
+    w: &world::World,
+) -> Vec<query::Change> {
     match change {
         query::Change(
             comp2,
@@ -71,6 +74,11 @@ pub(crate) fn changed_children_hook(change: &query::Change, w: &world::World) ->
                     if let Some(child_parent) = w.get_component_by_instance_id(
                         component::ComponentInstanceId::new::<Parent>(*child),
                     ) {
+                        //remove the child from the old parent's children
+                        changes.push(query::Change(
+                            child_parent.clone(),
+                            query::ChangeType::RemoveComponent,
+                        ));
                         //update the parent of the child
                         changes.push(query::Change(
                             (Parent {
@@ -79,6 +87,7 @@ pub(crate) fn changed_children_hook(change: &query::Change, w: &world::World) ->
                             .into_untyped(child_parent.get_instance_id().get_entity_id()),
                             query::ChangeType::UpdateComponent,
                         ));
+
                     } else {
                         //add the parent to the child
                         changes.push(query::Change(

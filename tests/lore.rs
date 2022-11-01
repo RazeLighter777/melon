@@ -28,7 +28,6 @@ fn lore_get() -> () {
             .value,
         32
     );
-
 }
 
 #[test]

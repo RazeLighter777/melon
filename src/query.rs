@@ -30,6 +30,11 @@ impl QueryBuilder {
     }
 }
 
+impl Default for QueryBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 pub struct QueryResult {
     entities: Vec<ComponentGroup>,
 }
@@ -72,6 +77,12 @@ impl QueryResultBuilder {
     }
 }
 
+impl Default for QueryResultBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 pub struct ComponentGroup {
     id: entity_id::EntityId,
     components: HashMap<ComponentTypeId, QueriedComponent>,
@@ -99,11 +110,8 @@ impl ComponentGroup {
     pub fn remove<T: ComponentType>(&mut self) {
         let component_type_id = component::get_type_id::<T>();
         let component = self.components.get(&component_type_id);
-        match component {
-            Some(_component) => {
-                self.removed_components.push(_component.component.clone());
-            }
-            None => (),
+        if let Some(component) = component {
+            self.removed_components.push(component.component.clone());
         }
     }
     pub fn new(

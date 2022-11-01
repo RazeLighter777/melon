@@ -22,8 +22,8 @@ impl Tags {
         self.tags.insert(s.to_string());
         self
     }
-    pub fn with_all(mut self, s: &Vec<String>) -> Self {
-        self.tags.extend(s.iter().cloned());
+    pub fn with_all(mut self, s: impl IntoIterator<Item = String>) -> Self {
+        self.tags.extend(s.into_iter());
         self
     }
     pub fn has(&self, s: &str) -> bool {
@@ -36,6 +36,12 @@ impl Tags {
         self.tags
             .iter()
             .fold(0, |x, y| x.wrapping_add(hashing::string_hash(y)))
+    }
+}
+
+impl Default for Tags {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -60,9 +66,11 @@ pub struct Lorebook {
 
 impl resource::Resource for Lorebook {}
 
+type LoreEntryDeserializer =  fn(serde_json::Value) -> Result<LoreEntry, LoreError>;
+
 pub struct LorebookBuilder {
     lorebook: Lorebook,
-    types: HashMap<u64, fn(serde_json::Value) -> Result<LoreEntry, LoreError>>,
+    types: HashMap<u64, LoreEntryDeserializer>,
 }
 
 #[derive(Deserialize)]
@@ -142,7 +150,7 @@ impl LorebookBuilder {
                         serde_json::from_reader(reader).map_err(LoreError::JSONError)?;
                     let basic_info = serde_json::from_value::<BasicLoreEntry>(contents.clone())
                         .map_err(|x| LoreError::LoreMissingTag(x.to_string()))?;
-                    jsons.insert(Tags::new().with_all(&basic_info.tags).hash(), contents);
+                    jsons.insert(Tags::new().with_all(basic_info.tags).hash(), contents);
                 }
             }
             //for each json file, check for merge tag and merge with other lore entries
@@ -150,9 +158,9 @@ impl LorebookBuilder {
                 let basic_info = serde_json::from_value::<BasicLoreEntry>(json.1.clone())
                     .map_err(|x| LoreError::LoreMissingTag(x.to_string()))?;
                 //if merge tag is present, merge with other lore entries
-                let tags = Tags::new().with_all(&basic_info.tags);
+                let tags = Tags::new().with_all(basic_info.tags);
                 if let Some(merge_tags) = basic_info.merge {
-                    let tg = Tags::new().with_all(&merge_tags);
+                    let tg = Tags::new().with_all(merge_tags);
                     let t = tg.hash();
                     if let Some(merge_json) = jsons.get(&t) {
                         let mut merged_json = merge_json.clone();
@@ -222,5 +230,11 @@ impl Lorebook {
             }
         }
         Ok(entries)
+    }
+}
+
+impl Default for LorebookBuilder {
+    fn default() -> Self {
+        Self::new()
     }
 }

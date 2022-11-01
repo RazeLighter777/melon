@@ -25,11 +25,17 @@ impl std::ops::Deref for WorldRef {
 
 impl WorldRef {}
 
+#[derive(Clone, Debug)]
+pub enum WorldError {
+    ResourceNotFound,
+    EntityNotFound,
+}
+
 pub struct World {
     components: HashMap<component::ComponentInstanceId, component::UntypedComponent>,
     entities: HashMap<entity_id::EntityId, HashSet<component::ComponentInstanceId>>,
     components_types: HashMap<component::ComponentTypeId, HashSet<entity_id::EntityId>>,
-    resources: HashMap<u64, Arc::<RwLock::<resource::UntypedResource>>>,
+    resources: HashMap<u64, Arc<RwLock<resource::UntypedResource>>>,
     //change_trackers: HashMap<component::ComponentTypeId, Vec<component::ComponentInstanceId>>,
     loader: Option<Arc<Mutex<Box<dyn hook::Loader>>>>,
     hooks: Vec<ChangeHook>,
@@ -95,7 +101,7 @@ impl World {
             entities: HashMap::new(),
             components_types: HashMap::new(),
             resources: HashMap::new(),
-            hooks : Vec::new(),
+            hooks: Vec::new(),
             loader: None,
             unloader: None,
         }
@@ -123,21 +129,27 @@ impl World {
         self.entities.len()
     }
 
-    pub fn read_resource<R: resource::Resource + 'static, ReturnType>(&self, closure : impl FnOnce(&R) -> ReturnType) -> Result<ReturnType, ()> {
+    pub fn read_resource<R: resource::Resource + 'static, ReturnType>(
+        &self,
+        closure: impl FnOnce(&R) -> ReturnType,
+    ) -> Result<ReturnType, WorldError> {
         if let Some(resource) = self.resources.get(&resource::get_resource_id::<R>()) {
             let resource = resource.read().unwrap();
             Ok(closure(resource.get_as::<R>()))
         } else {
-            Err(())
+            Err(WorldError::EntityNotFound)
         }
     }
 
-    pub fn write_resource<R: resource::Resource + 'static, ReturnType>(&self, closure : impl FnOnce(&mut R) -> ReturnType) -> Result<ReturnType, ()> {
+    pub fn write_resource<R: resource::Resource + 'static, ReturnType>(
+        &self,
+        closure: impl FnOnce(&mut R) -> ReturnType,
+    ) -> Result<ReturnType, WorldError> {
         if let Some(resource) = self.resources.get(&resource::get_resource_id::<R>()) {
             let mut resource = resource.write().unwrap();
             Ok(closure(resource.get_as_mut::<R>()))
         } else {
-            Err(())
+            Err(WorldError::EntityNotFound)
         }
     }
 
@@ -150,7 +162,8 @@ impl World {
                 system.execute(&mut query_result, self);
                 query_result.get_changes()
             })
-            .flatten().collect::<Vec<_>>();
+            .flatten()
+            .collect::<Vec<_>>();
         self.execute_changes(changed);
     }
 
@@ -166,34 +179,56 @@ impl World {
         loaded
     }
 
+    pub fn get_component<T: component::ComponentType + 'static>(
+        &self,
+        id: entity_id::EntityId,
+    ) -> Option<&T> {
+        self.entities
+            .get(&id)
+            .and_then(|x| x.get(&component::ComponentInstanceId::new::<T>(id)))
+            .and_then(|x| self.components.get(x).and_then(|x| x.get::<T>()))
+    }
+
     fn execute_changes(&mut self, changed: impl IntoParallelIterator<Item = Change>) {
         //execute untyped hooks
         let change_map = Mutex::new(HashMap::new());
-        changed
-        .into_par_iter().for_each(|x| {
+        changed.into_par_iter().for_each(|x| {
             let mut change_map = change_map.lock().unwrap();
-            change_map.entry(x.0.get_type()).or_insert_with(Vec::new).push(x);
+            change_map
+                .entry(x.0.get_type())
+                .or_insert_with(Vec::new)
+                .push(x);
         });
         let changed = change_map.into_inner().unwrap();
-        let newchanges = self.hooks.par_iter().map(|hook| {
-            if let Some(ctype) = hook.get_type() {
-                if let Some(changes) = changed.get(&ctype) {
-                    changes.par_iter().map(|x| {
-                        hook.execute(x, self)
-                    }).collect::<Vec<_>>()
+        let newchanges = self
+            .hooks
+            .par_iter()
+            .map(|hook| {
+                if let Some(ctype) = hook.get_type() {
+                    if let Some(changes) = changed.get(&ctype) {
+                        changes
+                            .par_iter()
+                            .map(|x| hook.execute(x, self))
+                            .collect::<Vec<_>>()
+                    } else {
+                        Vec::new()
+                    }
                 } else {
-                    Vec::new()
+                    changed
+                        .par_iter()
+                        .map(|x| x.1)
+                        .flatten()
+                        .map(|x| hook.execute(x, self))
+                        .collect::<Vec<_>>()
                 }
-            } else {
-                changed.par_iter().map(|x| x.1).flatten().map(|x| {
-                    hook.execute(x, self)
-                }).collect::<Vec<_>>()
-            }
-        }).flatten().flatten().collect::<Vec<_>>();
+            })
+            .flatten()
+            .flatten()
+            .collect::<Vec<_>>();
         if !newchanges.is_empty() {
             self.execute_changes(newchanges);
         }
-        changed.iter().map(|x|  x.1).flatten().for_each(|change| {
+        changed.iter().flat_map(|x| x.1).for_each(|change| {
             match change {
                 query::Change(
                     comp,
@@ -249,16 +284,15 @@ impl World {
 }
 
 impl entity_builder::SpawnLocation for World {
-    fn spawn(
-        &mut self,
-        components: Vec<component::UntypedComponent>,
-    ) {
-        self.execute_changes(components.into_iter().map(|x| {
-            query::Change(x, query::ChangeType::AddComponent)
-        }).collect::<Vec<_>>());
+    fn spawn(&mut self, components: Vec<component::UntypedComponent>) {
+        self.execute_changes(
+            components
+                .into_iter()
+                .map(|x| query::Change(x, query::ChangeType::AddComponent))
+                .collect::<Vec<_>>(),
+        );
     }
 }
-
 
 pub struct WorldBuilder {
     world: World,
@@ -293,11 +327,23 @@ impl WorldBuilder {
         mut self,
         _hook: hook::HookLambda,
     ) -> Self {
-        self.world.hooks.push(hook::ChangeHook::new_typed::<T>(_hook));
+        self.world
+            .hooks
+            .push(hook::ChangeHook::new_typed::<T>(_hook));
         self
     }
     pub fn build(self) -> World {
         self.world
     }
 }
+impl Default for WorldBuilder {
+    fn default() -> Self {
+        WorldBuilder::new()
+    }
+}
 
+impl Default for World {
+    fn default() -> Self {
+        World::new()
+    }
+}

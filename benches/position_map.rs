@@ -29,7 +29,7 @@ impl system::System for TestSystem {
 
 #[bench]
 fn position_map_test(b: &mut Bencher) {
-    let mut world = default_world::DefaultWorld::new().build();
+    let mut world = default_world::DefaultWorld::get().build();
     for i in 0..10000 {
         world
             .add_entity()
@@ -44,9 +44,10 @@ fn position_map_test(b: &mut Bencher) {
         .build();
     b.iter(|| {
         world.execute_stage(&stage1);
-        world.read_resource(|position_map: &position_map::PositionMap| {
-            position_map.get_nearest([0, 0], 10)
-        }).unwrap();
-        
+        world
+            .read_resource(|position_map: &position_map::PositionMap| {
+                position_map.get_nearest([0, 0], 10)
+            })
+            .unwrap();
     })
 }

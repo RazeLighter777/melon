@@ -32,3 +32,9 @@ impl StageBuilder {
         }
     }
 }
+
+impl Default for StageBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}

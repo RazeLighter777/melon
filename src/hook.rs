@@ -4,8 +4,7 @@ pub(crate) struct ChangeHook {
     closure: HookLambda,
     component_type: Option<component::ComponentTypeId>,
 }
-pub type HookLambda  = fn(&query::Change, &world::World) -> Vec<query::Change>;
-
+pub type HookLambda = fn(&query::Change, &world::World) -> Vec<query::Change>;
 
 impl ChangeHook {
     pub fn new(closure: HookLambda) -> Self {
@@ -20,7 +19,11 @@ impl ChangeHook {
             component_type: Some(component::get_type_id::<T>()),
         }
     }
-    pub(crate) fn execute(&self, change: &query::Change, world: &world::World) -> Vec<query::Change> {
+    pub(crate) fn execute(
+        &self,
+        change: &query::Change,
+        world: &world::World,
+    ) -> Vec<query::Change> {
         (self.closure)(change, world)
     }
     pub(crate) fn get_type(&self) -> Option<component::ComponentTypeId> {
