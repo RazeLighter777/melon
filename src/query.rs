@@ -1,7 +1,9 @@
+use std::ops::{Deref, DerefMut};
+
 use hashbrown::{HashMap, HashSet};
 
 use crate::{
-    component::{self, ComponentType, ComponentTypeId, UntypedComponent},
+    component::{self, ComponentType, ComponentTypeId, UntypedComponent, TypedComponent},
     entity_id,
 };
 
@@ -88,11 +90,37 @@ pub struct ComponentGroup {
     components: HashMap<ComponentTypeId, UntypedComponent>,
 }
 
+pub struct TypedComponentWriteback<'a, T: ComponentType> {
+    component : TypedComponent<T>,
+    group : &'a mut ComponentGroup,
+}
+
+impl <'a, T: ComponentType> Deref for TypedComponentWriteback<'a, T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        self.component.deref()
+    }
+}
+
+impl <'a, T: ComponentType> DerefMut for TypedComponentWriteback<'a, T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.component.deref_mut()
+    }
+}
+
+//write back changes when the TypedComponentWriteback goes out of scope
+impl <'a, T: ComponentType> Drop for TypedComponentWriteback<'a, T> {
+    fn drop(&mut self) {
+        self.group.components.insert(self.component.get_type_id(), self.component.get_untyped());
+    }
+}
+
 impl ComponentGroup {
     pub fn get<T: ComponentType>(&self) -> Option<component::TypedComponent<T>> {
         self.components
             .get(&component::get_type_id::<T>())
-            .map(|x| component::TypedComponent::new(&x))
+            .map(|x| component::TypedComponent::new(x.clone()))
     }
     pub fn get_id(&self) -> entity_id::EntityId {
         self.id

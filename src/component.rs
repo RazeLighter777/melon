@@ -1,4 +1,4 @@
-use std::{any::Any, fmt::Display, sync::Arc, ops::{Deref, DerefMut}};
+use std::{any::Any, fmt::Display, sync::Arc, ops::{Deref, DerefMut}, borrow::Borrow};
 
 use serde::{Deserialize, Serialize};
 
@@ -123,36 +123,44 @@ impl<T: ComponentType> TypedComponent<T> {
         }
     }
     pub fn get(&self) -> &T {
-        match &self.internal {
-            TypedComponentInternal::Unchanged(c) => c.get_unchecked::<T>(),
-            TypedComponentInternal::Changed(c, _) => c,
+        let x =  self.internal.borrow();
+        match x {
+            TypedComponentInternal::Unchanged(x) => x.get_unchecked::<T>(),
+            TypedComponentInternal::Changed(x,_) => x,
         }
     }
     pub fn make_mut(&mut self) -> &mut T {
-        match &mut self.internal {
-            TypedComponentInternal::Unchanged(c) => {
-                self.internal = TypedComponentInternal::Changed(c.get::<T>().cloned().unwrap(), c.get_instance_id());
-                self.make_mut()
-            }
-            TypedComponentInternal::Changed(c, _) => c,
+        if let TypedComponentInternal::Unchanged(c) = &mut self.internal {
+            self.internal = TypedComponentInternal::Changed(c.get_unchecked::<T>().clone(), c.get_instance_id());
+        }
+        if let TypedComponentInternal::Changed(comp, _)  = &mut self.internal {
+            return comp;
+        } else {
+            unreachable!()
         }
     }
-    pub fn get_type(&self) -> ComponentTypeId {
-        match self.internal {
+    pub fn get_untyped(&self) -> UntypedComponent {
+        match &self.internal {
+            TypedComponentInternal::Unchanged(x) => x.clone(),
+            TypedComponentInternal::Changed(x, id) => x.clone().into_untyped(id.get_entity_id()),
+        }
+    }
+    pub fn get_type_id(&self) -> ComponentTypeId {
+        match &self.internal {
             TypedComponentInternal::Unchanged(c) => c.get_type(),
             TypedComponentInternal::Changed(_, id) => id.get_component_type_id(),
         }
     }
     pub fn get_entity_id(&self) -> entity_id::EntityId {
-        match self.internal {
+        match &self.internal {
             TypedComponentInternal::Unchanged(c) => c.get_entity_id(),
             TypedComponentInternal::Changed(_, id) => id.get_entity_id(),
         }
     }
     pub fn get_instance_id(&self) -> ComponentInstanceId {
-        match self.internal {
+        match &self.internal {
             TypedComponentInternal::Unchanged(c) => c.get_instance_id(),
-            TypedComponentInternal::Changed(_, id) => id,
+            TypedComponentInternal::Changed(_, id) => *id,
         }
     }
 }
