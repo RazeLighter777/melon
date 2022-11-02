@@ -24,7 +24,7 @@ impl QueryBuilder {
         }
     }
     pub fn with<T: ComponentType>(mut self) -> Self {
-        self.query.components.insert(component::get_type_id::<T>());
+        self.query.components.insert(component::type_id::<T>());
         self
     }
     pub fn build(self) -> Query {
@@ -119,10 +119,10 @@ impl <'a, T: ComponentType> Drop for TypedComponentWriteback<'a, T> {
 impl ComponentGroup {
     pub fn get<T: ComponentType>(&mut self) -> Option<TypedComponentWriteback<T>> {
         self.components
-            .get(&component::get_type_id::<T>())
+            .get(&component::type_id::<T>())
             .cloned()
             .map(|x| TypedComponentWriteback {
-                component: TypedComponent::new(x.clone()),
+                component: TypedComponent::new(x),
                 group : self,
             })
     }

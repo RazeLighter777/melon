@@ -71,11 +71,11 @@ pub(crate) fn changed_children_hook(
                 let mut changes = Vec::new();
                 for child in comp2.entities.iter() {
                     //if the child already has a parent, replace it as long as it is incorrect
-                    if let Some(child_parent) = w.get_component::<Parent>(*child) && child_parent.entity != comp.get_entity_id() {
+                    if let Some(child_parent) = w.get_component::<Parent>(*child) && child_parent.entity != comp.entity_id() {
                         changes.push(query::Change(
                             component::UntypedComponent::new(
                                 Parent {
-                                    entity: comp.get_instance_id().get_entity_id(),
+                                    entity: comp.id().entity_id(),
                                 },
                                 *child,
                             ),
@@ -86,7 +86,7 @@ pub(crate) fn changed_children_hook(
                         //add the parent to the child
                         changes.push(query::Change(
                             (Parent {
-                                entity: comp.get_instance_id().get_entity_id(),
+                                entity: comp.id().entity_id(),
                             })
                             .into_untyped(*child),
                             query::ChangeType::AddComponent,
@@ -109,13 +109,13 @@ pub(crate) fn changed_parent_hook(change: &query::Change, w: &world::World) -> V
         ) => {
             if let Some(comp2) = comp.get::<Parent>() {
                 let mut changes = Vec::new();
-                if let Some(children) = w.get_component::<Children>(comp2.entity) && children.entities.contains(&comp.get_instance_id().get_entity_id()) {
+                if let Some(children) = w.get_component::<Children>(comp2.entity) && children.entities.contains(&comp.id().entity_id()) {
                     changes.push(query::Change(
                         (Children {
                             entities: children
                                 .entities
                                 .iter()
-                                .filter(|e| **e != comp.get_instance_id().get_entity_id())
+                                .filter(|e| **e != comp.id().entity_id())
                                 .cloned()
                                 .collect(),
                         })
@@ -133,13 +133,13 @@ pub(crate) fn changed_parent_hook(change: &query::Change, w: &world::World) -> V
             let mut changes = Vec::new();
             //remove the old one
             if let Some(comp2) = comp.get::<Parent>() {
-                if let Some(children) = w.get_component::<Children>(comp2.entity) && children.entities.contains(&comp.get_entity_id()) {
+                if let Some(children) = w.get_component::<Children>(comp2.entity) && children.entities.contains(&comp.entity_id()) {
                     changes.push(query::Change(
                         (Children {
                             entities: children
                                 .entities
                                 .iter()
-                                .filter(|e| **e != comp.get_instance_id().get_entity_id())
+                                .filter(|e| **e != comp.id().entity_id())
                                 .cloned()
                                 .collect(),
                         })

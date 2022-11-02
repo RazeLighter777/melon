@@ -66,7 +66,7 @@ pub fn position_hook(change: &query::Change, world: &world::World) -> Vec<query:
                 world
                     .write_resource(|position_map: &mut PositionMap| {
                         position_map.insert(
-                            comp.get_instance_id().get_entity_id(),
+                            comp.id().entity_id(),
                             [position.x, position.y],
                         );
                     })
@@ -79,7 +79,7 @@ pub fn position_hook(change: &query::Change, world: &world::World) -> Vec<query:
         ) => {
             world
                 .write_resource(|position_map: &mut PositionMap| {
-                    position_map.remove(comp.get_instance_id().get_entity_id());
+                    position_map.remove(comp.id().entity_id());
                 })
                 .expect("position map not found");
         }
@@ -88,7 +88,7 @@ pub fn position_hook(change: &query::Change, world: &world::World) -> Vec<query:
                 world
                     .write_resource(|position_map: &mut PositionMap| {
                         position_map.update(
-                            comp.get_instance_id().get_entity_id(),
+                            comp.id().entity_id(),
                             [position.x, position.y],
                         );
                     })

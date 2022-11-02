@@ -16,7 +16,7 @@ impl ChangeHook {
     pub fn new_typed<T: component::ComponentType>(closure: HookLambda) -> Self {
         Self {
             closure,
-            component_type: Some(component::get_type_id::<T>()),
+            component_type: Some(component::type_id::<T>()),
         }
     }
     pub(crate) fn execute(

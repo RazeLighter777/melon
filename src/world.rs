@@ -189,23 +189,19 @@ impl World {
             .and_then(|x| self.components.get(x).and_then(|x| x.get::<T>()))
     }
 
-    fn execute_changes(&mut self, changed: impl IntoParallelIterator<Item = Change>) {
+    fn execute_changes(&mut self, changed: impl IntoIterator<Item = Change>+ Send + Sync) {
         //execute untyped hooks
-        let change_map = Mutex::new(HashMap::new());
-        changed.into_par_iter().for_each(|x| {
-            let mut change_map = change_map.lock().unwrap();
-            change_map
-                .entry(x.0.get_type())
-                .or_insert_with(Vec::new)
-                .push(x);
+        let change_map = 
+        changed.into_iter().fold(std::collections::HashMap::new(), |mut acc, x| {
+            acc.entry(x.0.get_type()).or_insert_with(Vec::new).push(x);
+            acc
         });
-        let changed = change_map.into_inner().unwrap();
         let newchanges = self
             .hooks
             .par_iter()
             .map(|hook| {
                 if let Some(ctype) = hook.get_type() {
-                    if let Some(changes) = changed.get(&ctype) {
+                    if let Some(changes) = change_map.get(&ctype) {
                         changes
                             .par_iter()
                             .map(|x| hook.execute(x, self))
@@ -214,12 +210,12 @@ impl World {
                         Vec::new()
                     }
                 } else {
-                    changed
-                        .par_iter()
-                        .map(|x| x.1)
-                        .flatten()
+                    change_map
+                        .iter()
+                        .flat_map(|x| x.1)
                         .map(|x| hook.execute(x, self))
                         .collect::<Vec<_>>()
+    
                 }
             })
             .flatten()
@@ -228,7 +224,7 @@ impl World {
         if !newchanges.is_empty() {
             self.execute_changes(newchanges);
         }
-        changed.iter().flat_map(|x| x.1).for_each(|change| {
+        change_map.into_iter().flat_map(|x| x.1).for_each(|change| {
             match change {
                 query::Change(
                     comp,
@@ -236,8 +232,8 @@ impl World {
                     | query::ChangeType::UnloadComponent),
                 ) => {
                     let tid = &&comp.get_type();
-                    let eid = &comp.get_instance_id().get_entity_id();
-                    let id = &comp.get_instance_id();
+                    let eid = &comp.id().entity_id();
+                    let id = &comp.id();
                     if let Some(set) = self.entities.get_mut(eid) {
                         set.remove(id);
                         if set.is_empty() {
@@ -252,9 +248,9 @@ impl World {
                 query::Change(comp, query::ChangeType::AddComponent) => {
                     let tid = comp.get_type();
                     //execute add component hooks
-                    let eid = comp.get_instance_id().get_entity_id();
-                    let cid = comp.get_instance_id();
-                    self.components.insert(cid, comp.clone());
+                    let eid = comp.id().entity_id();
+                    let cid = comp.id();
+                    self.components.insert(cid, comp);
                     if let Some(set) = self.entities.get_mut(&eid) {
                         set.insert(cid);
                     } else {
@@ -271,8 +267,8 @@ impl World {
                     }
                 }
                 query::Change(comp, query::ChangeType::UpdateComponent) => {
-                    let id = comp.get_instance_id();
-                    self.components.insert(id, comp.clone());
+                    let id = comp.id();
+                    self.components.insert(id, comp);
                 }
             }
         });

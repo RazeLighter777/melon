@@ -42,3 +42,9 @@ impl Command {
         &self.unloaded_components
     }
 }
+
+impl Default for Command {
+    fn default() -> Self {
+        Self::new()
+    }
+}

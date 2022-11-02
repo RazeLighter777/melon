@@ -18,21 +18,21 @@ impl ComponentInstanceId {
         ComponentInstanceId(entity_id, component_type_id)
     }
     pub fn new<T: ComponentType + 'static>(entity_id: entity_id::EntityId) -> Self {
-        ComponentInstanceId(entity_id, get_type_id::<T>())
+        ComponentInstanceId(entity_id, type_id::<T>())
     }
-    pub fn get_component_type_id(&self) -> ComponentTypeId {
+    pub fn component_type_id(&self) -> ComponentTypeId {
         self.1
     }
-    pub fn get_entity_id(&self) -> entity_id::EntityId {
+    pub fn entity_id(&self) -> entity_id::EntityId {
         self.0
     }
 }
 
-pub const fn get_type_id<DataType: 'static>() -> ComponentTypeId {
+pub const fn type_id<DataType: 'static>() -> ComponentTypeId {
     ComponentTypeId(hashing::string_hash(std::any::type_name::<DataType>()))
 }
 
-pub const fn get_type_id_from_str(s: &str) -> ComponentTypeId {
+pub const fn type_id_from_str(s: &str) -> ComponentTypeId {
     ComponentTypeId(hashing::string_hash(s))
 }
 
@@ -41,9 +41,9 @@ impl ComponentTypeId {
         ComponentTypeId(id)
     }
     pub fn new<T: 'static>() -> Self {
-        get_type_id::<T>()
+        type_id::<T>()
     }
-    pub fn get_number(&self) -> u64 {
+    pub fn num(&self) -> u64 {
         self.0
     }
 }
@@ -72,11 +72,8 @@ impl UntypedComponent {
     pub fn get<T: ComponentType + 'static>(&self) -> Option<&T> {
         self.internal.data.downcast_ref::<T>()
     }
-    pub fn is_unqiue(&self) -> bool {
+    pub(crate) fn is_unqiue(&self) -> bool {
         Arc::<_>::strong_count(&self.internal) == 1
-    }
-    pub fn make_mut<T: ComponentType + 'static>(&mut self) -> &mut T {
-        todo!()
     }
     pub fn get_unchecked<T: ComponentType + 'static>(&self) -> &T {
         self.internal.data.downcast_ref::<T>().unwrap()
@@ -84,16 +81,16 @@ impl UntypedComponent {
     pub fn get_type(&self) -> ComponentTypeId {
         self.internal.component_type_id
     }
-    pub fn get_entity_id(&self) -> entity_id::EntityId {
-        self.internal.instance_id.get_entity_id()
+    pub fn entity_id(&self) -> entity_id::EntityId {
+        self.internal.instance_id.entity_id()
     }
-    pub fn get_instance_id(&self) -> ComponentInstanceId {
+    pub fn id(&self) -> ComponentInstanceId {
         self.internal.instance_id
     }
     pub fn new<T: ComponentType>(component: T, entity_id: entity_id::EntityId) -> Self {
         UntypedComponent {
             internal: Arc::new(UntypedComponentInternal {
-                component_type_id: get_type_id::<T>(),
+                component_type_id: type_id::<T>(),
                 instance_id: ComponentInstanceId::new::<T>(entity_id),
                 data: Box::new(component),
             }),
@@ -131,10 +128,10 @@ impl<T: ComponentType> TypedComponent<T> {
     }
     pub fn make_mut(&mut self) -> &mut T {
         if let TypedComponentInternal::Unchanged(c) = &mut self.internal {
-            self.internal = TypedComponentInternal::Changed(c.get_unchecked::<T>().clone(), c.get_instance_id());
+            self.internal = TypedComponentInternal::Changed(c.get_unchecked::<T>().clone(), c.id());
         }
         if let TypedComponentInternal::Changed(comp, _)  = &mut self.internal {
-            return comp;
+            comp
         } else {
             unreachable!()
         }
@@ -142,24 +139,24 @@ impl<T: ComponentType> TypedComponent<T> {
     pub fn get_untyped(&self) -> UntypedComponent {
         match &self.internal {
             TypedComponentInternal::Unchanged(x) => x.clone(),
-            TypedComponentInternal::Changed(x, id) => x.clone().into_untyped(id.get_entity_id()),
+            TypedComponentInternal::Changed(x, id) => x.clone().into_untyped(id.entity_id()),
         }
     }
     pub fn get_type_id(&self) -> ComponentTypeId {
         match &self.internal {
             TypedComponentInternal::Unchanged(c) => c.get_type(),
-            TypedComponentInternal::Changed(_, id) => id.get_component_type_id(),
+            TypedComponentInternal::Changed(_, id) => id.component_type_id(),
         }
     }
     pub fn get_entity_id(&self) -> entity_id::EntityId {
         match &self.internal {
-            TypedComponentInternal::Unchanged(c) => c.get_entity_id(),
-            TypedComponentInternal::Changed(_, id) => id.get_entity_id(),
+            TypedComponentInternal::Unchanged(c) => c.entity_id(),
+            TypedComponentInternal::Changed(_, id) => id.entity_id(),
         }
     }
     pub fn get_instance_id(&self) -> ComponentInstanceId {
         match &self.internal {
-            TypedComponentInternal::Unchanged(c) => c.get_instance_id(),
+            TypedComponentInternal::Unchanged(c) => c.id(),
             TypedComponentInternal::Changed(_, id) => *id,
         }
     }
