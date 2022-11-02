@@ -1,11 +1,16 @@
 use crate::entity_id;
 use crate::component;
+use crate::resource;
+use crate::world;
+pub type WorldReferenceWriteClosure = fn(&mut world::World) -> ();
+
 
 pub struct Command {
     removed_entities: Vec<entity_id::EntityId>,
     removed_components: Vec<component::ComponentInstanceId>,
     unloaded_entities: Vec<component::ComponentInstanceId>,
     unloaded_components: Vec<component::ComponentInstanceId>,
+    world_reference_closure : Vec<WorldReferenceWriteClosure>
 }
 
 impl Command {
@@ -15,6 +20,7 @@ impl Command {
             removed_components: Vec::new(),
             unloaded_entities: Vec::new(),
             unloaded_components: Vec::new(),
+            world_reference_closure : Vec::new()
         }
     }
     pub fn remove_entity(&mut self, id: entity_id::EntityId) {
@@ -40,6 +46,16 @@ impl Command {
     }
     pub fn get_unloaded_components(&self) -> &Vec<component::ComponentInstanceId> {
         &self.unloaded_components
+    }
+
+    pub fn write_resource<R: resource::Resource + 'static, ReturnType>(
+        &mut self,
+        closure: impl FnOnce(&mut R) -> ReturnType,
+    ){
+
+
+
+        
     }
 }
 

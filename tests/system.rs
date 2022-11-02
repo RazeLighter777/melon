@@ -16,7 +16,6 @@ impl system::System for TestSystem {
         query_result: &mut query::QueryResult,
         _world: &world::World,
     ) -> commands::Command {
-        println!("Bitch");
 
         for e in query_result.iter() {
             e.get::<base_components::Position>().unwrap().x += 1;
