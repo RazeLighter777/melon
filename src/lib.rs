@@ -19,5 +19,7 @@ pub mod resource;
 pub mod stage;
 pub mod system;
 pub mod world;
+use mimalloc::MiMalloc;
+
 #[global_allocator]
-static GLOBAL: jemallocator::Jemalloc = jemallocator::Jemalloc;
+static GLOBAL: MiMalloc = MiMalloc;

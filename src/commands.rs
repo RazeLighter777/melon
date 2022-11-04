@@ -10,7 +10,7 @@ pub struct Command {
     removed_components: Vec<component::ComponentInstanceId>,
     unloaded_entities: Vec<component::ComponentInstanceId>,
     unloaded_components: Vec<component::ComponentInstanceId>,
-    world_reference_closure : Vec<WorldReferenceWriteClosure>
+    world_reference_closure : Vec<Box<dyn FnOnce(&mut world::World ) -> ()>>
 }
 
 impl Command {
@@ -50,11 +50,11 @@ impl Command {
 
     pub fn write_resource<R: resource::Resource + 'static, ReturnType>(
         &mut self,
-        closure: impl FnOnce(&mut R) -> ReturnType,
+        closure: impl FnOnce(&mut R) -> ReturnType + 'static,
     ){
-
-
-
+        self.world_reference_closure.push(Box::new(move |world : &mut world::World| {
+            world.write_resource::<R, ReturnType>(closure).unwrap();
+        }));
         
     }
 }
