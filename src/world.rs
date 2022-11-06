@@ -152,17 +152,16 @@ impl World {
     }
 
     pub fn execute_stage(&mut self, stage: &stage::Stage) {
-        //println!("Executing");
-        let changed = stage
+        let (changed, cmds) : (Vec<Vec<query::Change>>, Vec<resource_writer::ResourceWriter>)= stage
             .iter()
             .map(|system| {
                 let mut query_result = self.query_world(system.query());
-                system.execute(&mut query_result, self);
-                query_result.get_changes()
-            })
-            .flatten()
-            .collect::<Vec<_>>();
-        self.execute_changes(changed);
+                let mut commands = resource_writer::ResourceWriter::new();
+                system.execute(&mut query_result, &mut commands, self);
+                (query_result.get_changes(), commands)
+            }).unzip();
+        self.execute_changes(changed.into_iter().flatten());
+        cmds.into_iter().for_each(|x| self.execute_command(x));
     }
 
     pub fn load(&mut self, id: Vec<entity_id::EntityId>) -> Vec<entity_id::EntityId> {
@@ -299,7 +298,6 @@ impl World {
                 .iter()
                 .map(|x| query::Change(self.components.get(x).unwrap().clone(), query::ChangeType::RemoveComponent))
                 .collect::<Vec<_>>();
-            println!("changes {:?}", changes.len());
             self.execute_changes(changes);
         }
     }
