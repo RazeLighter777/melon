@@ -1,4 +1,4 @@
-use crate::{commands, query, world};
+use crate::{resource_writer, query, world};
 
 pub trait System: Send + Sync {
     fn query(&self) -> query::Query;
@@ -6,5 +6,5 @@ pub trait System: Send + Sync {
         &self,
         query_result: &mut query::QueryResult,
         world: &world::World,
-    ) -> commands::Command;
+    ) -> resource_writer::ResourceWriter;
 }

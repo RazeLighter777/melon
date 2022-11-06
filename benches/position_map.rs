@@ -16,11 +16,11 @@ impl system::System for TestSystem {
         &self,
         query_result: &mut query::QueryResult,
         _world: &world::World,
-    ) -> commands::Command {
+    ) -> resource_writer::ResourceWriter {
         for e in query_result.iter() {
             e.get::<base_components::Position>().unwrap().x += 1;
         }
-        commands::Command::new()
+        resource_writer::ResourceWriter::new()
     }
 }
 

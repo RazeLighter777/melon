@@ -1,11 +1,11 @@
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Mutex};
 
 use crate::{
     component, entity_builder,
     entity_id::{self},
     hook::{self, ChangeHook},
     query::{self, Change},
-    resource, stage,
+    resource, stage, resource_writer,
 };
 use hashbrown::{HashMap, HashSet};
 use rayon::prelude::*;
@@ -35,7 +35,7 @@ pub struct World {
     components: HashMap<component::ComponentInstanceId, component::UntypedComponent>,
     entities: HashMap<entity_id::EntityId, HashSet<component::ComponentInstanceId>>,
     components_types: HashMap<component::ComponentTypeId, HashSet<entity_id::EntityId>>,
-    resources: HashMap<u64, Arc<RwLock<resource::UntypedResource>>>,
+    resources: HashMap<u64, resource::UntypedResource>,
     //change_trackers: HashMap<component::ComponentTypeId, Vec<component::ComponentInstanceId>>,
     loader: Option<Arc<Mutex<Box<dyn hook::Loader>>>>,
     hooks: Vec<ChangeHook>,
@@ -134,7 +134,6 @@ impl World {
         closure: impl FnOnce(&R) -> ReturnType,
     ) -> Result<ReturnType, WorldError> {
         if let Some(resource) = self.resources.get(&resource::get_resource_id::<R>()) {
-            let resource = resource.read().unwrap();
             Ok(closure(resource.get_as::<R>()))
         } else {
             Err(WorldError::EntityNotFound)
@@ -142,11 +141,10 @@ impl World {
     }
 
     pub fn write_resource<R: resource::Resource + 'static, ReturnType>(
-        &self,
+        &mut self,
         closure: impl FnOnce(&mut R) -> ReturnType,
     ) -> Result<ReturnType, WorldError> {
-        if let Some(resource) = self.resources.get(&resource::get_resource_id::<R>()) {
-            let mut resource = resource.write().unwrap();
+        if let Some(resource) = self.resources.get_mut(&resource::get_resource_id::<R>()) {
             Ok(closure(resource.get_as_mut::<R>()))
         } else {
             Err(WorldError::EntityNotFound)
@@ -179,6 +177,12 @@ impl World {
         loaded
     }
 
+    pub fn execute_command(&mut self, command: resource_writer::ResourceWriter) {
+        command.get_resource_writes().into_iter().for_each(|x| {
+            x(self);
+        });
+    }
+
     pub fn get_component<T: component::ComponentType + 'static>(
         &self,
         id: entity_id::EntityId,
@@ -196,31 +200,39 @@ impl World {
             acc.entry(x.0.get_type()).or_insert_with(Vec::new).push(x);
             acc
         });
-        let newchanges = self
+        let (newchanges, commands) : (Vec<Change>, Vec<resource_writer::ResourceWriter>)= self
             .hooks
             .par_iter()
             .map(|hook| {
                 if let Some(ctype) = hook.get_type() {
                     if let Some(changes) = change_map.get(&ctype) {
-                        changes
+                        let  (chgs, cmds) : (Vec<Vec<Change>>, Vec<resource_writer::ResourceWriter>) = changes
                             .par_iter()
-                            .map(|x| hook.execute(x, self))
-                            .collect::<Vec<_>>()
+                            .map(|x| {
+                                let mut commands  = resource_writer::ResourceWriter::new();
+                                (hook.execute(x, self, &mut commands), commands)
+                            })
+                            .unzip();
+                        (chgs.into_iter().flatten().collect::<Vec<_>>(), cmds)
                     } else {
-                        Vec::new()
+                        (Vec::new(), Vec::new())
                     }
                 } else {
-                    change_map
-                        .iter()
-                        .flat_map(|x| x.1)
-                        .map(|x| hook.execute(x, self))
-                        .collect::<Vec<_>>()
+                    let  (chgs, cmds) : (Vec<Vec<Change>>, Vec<resource_writer::ResourceWriter>) = change_map
+                            .par_iter()
+                            .flat_map(|x| x.1)
+                            .map(|x| {
+                                let mut commands  = resource_writer::ResourceWriter::new();
+                                (hook.execute(x, self, &mut commands), commands)
+                            })
+                            .unzip();
+                        (chgs.into_iter().flatten().collect::<Vec<_>>(), cmds)
     
                 }
             })
             .flatten()
-            .flatten()
-            .collect::<Vec<_>>();
+            .unzip();
+        commands.into_iter().for_each(|x| self.execute_command(x));
         if !newchanges.is_empty() {
             self.execute_changes(newchanges);
         }
@@ -242,6 +254,9 @@ impl World {
                     }
                     if let Some(set) = self.components_types.get_mut(tid) {
                         set.remove(eid);
+                        if set.is_empty() {
+                            self.entities.remove(eid);
+                        }
                     }
                     self.components.remove(id);
                 }
@@ -284,6 +299,7 @@ impl World {
                 .iter()
                 .map(|x| query::Change(self.components.get(x).unwrap().clone(), query::ChangeType::RemoveComponent))
                 .collect::<Vec<_>>();
+            println!("changes {:?}", changes.len());
             self.execute_changes(changes);
         }
     }
@@ -313,7 +329,7 @@ impl WorldBuilder {
     pub fn with_resource<R: resource::Resource + 'static>(mut self, resource: R) -> Self {
         self.world.resources.insert(
             resource::get_resource_id::<R>(),
-            Arc::new(RwLock::new(resource::UntypedResource::new(resource))),
+            resource::UntypedResource::new(resource),
         );
         self
     }

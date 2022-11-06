@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     component::{self, ComponentType},
-    entity_id, query, world,
+    entity_id, query, world, resource_writer,
 };
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -40,6 +40,7 @@ impl component::ComponentType for Parent {}
 pub(crate) fn changed_children_hook(
     change: &query::Change,
     w: &world::World,
+    _ : &mut resource_writer::ResourceWriter
 ) -> Vec<query::Change> {
     match change {
         query::Change(
@@ -101,7 +102,7 @@ pub(crate) fn changed_children_hook(
     }
 }
 
-pub(crate) fn changed_parent_hook(change: &query::Change, w: &world::World) -> Vec<query::Change> {
+pub(crate) fn changed_parent_hook(change: &query::Change, w: &world::World, _ : &mut resource_writer::ResourceWriter) -> Vec<query::Change> {
     match change {
         query::Change(
             comp,

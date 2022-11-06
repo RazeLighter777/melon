@@ -4,7 +4,7 @@ use hashbrown::{HashMap, HashSet};
 
 use crate::{
     component::{self, ComponentType, ComponentTypeId, UntypedComponent, TypedComponent},
-    entity_id,
+    entity_id, world, resource, resource_writer::WorldReferenceWriteClosure,
 };
 
 pub struct Query {
@@ -39,6 +39,7 @@ impl Default for QueryBuilder {
 }
 pub struct QueryResult {
     entities: Vec<ComponentGroup>,
+    world_reference_closure : Vec<WorldReferenceWriteClosure>
 }
 
 impl QueryResult {
@@ -51,6 +52,15 @@ impl QueryResult {
     pub fn iter(&mut self) -> std::slice::IterMut<ComponentGroup> {
         self.entities.iter_mut()
     }
+    pub fn write_resource<R: resource::Resource + 'static, ReturnType>(
+        &mut self,
+        closure: impl FnOnce(&mut R) -> ReturnType + 'static + Send,
+    ){
+        self.world_reference_closure.push(Box::new(move |world : &mut world::World| {
+            world.write_resource::<R, ReturnType>(closure).unwrap();
+        }));
+        
+    }
 }
 
 pub struct QueryResultBuilder {
@@ -61,6 +71,7 @@ impl QueryResultBuilder {
         QueryResultBuilder {
             query_result: QueryResult {
                 entities: Vec::new(),
+                world_reference_closure : Vec::new()
             },
         }
     }

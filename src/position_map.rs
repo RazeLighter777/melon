@@ -1,7 +1,7 @@
 use crate::{
     base_components,
     entity_id::{self, EntityId},
-    query, resource, world,
+    query, resource, world, resource_writer,
 };
 use hashbrown::HashMap;
 use rtree_rs;
@@ -58,41 +58,43 @@ impl PositionMap {
 
 impl resource::Resource for PositionMap {}
 
-pub fn position_hook(change: &query::Change, world: &world::World) -> Vec<query::Change> {
+pub fn position_hook(change: &query::Change, _ : &world::World, c : &mut resource_writer::ResourceWriter) -> Vec<query::Change> {
     //println!("size {}", position_map.map.lock().unwrap().len());
     match change {
         query::Change(comp, query::ChangeType::AddComponent) => {
             if let Some(position) = comp.get::<base_components::Position>() {
-                world
-                    .write_resource(|position_map: &mut PositionMap| {
+                let x = comp.id().entity_id();
+                let y =[position.x, position.y];
+                c
+                    .write_resource(move |position_map: &mut PositionMap| {
                         position_map.insert(
-                            comp.id().entity_id(),
-                            [position.x, position.y],
+                            x,
+                            y,
                         );
-                    })
-                    .expect("position map not found");
+                    });
             }
         }
         query::Change(
             comp,
             query::ChangeType::RemoveComponent | query::ChangeType::UnloadComponent,
         ) => {
-            world
-                .write_resource(|position_map: &mut PositionMap| {
-                    position_map.remove(comp.id().entity_id());
-                })
-                .expect("position map not found");
+            let entity_to_be_removed = comp.id().entity_id();
+            c
+                .write_resource(move |position_map: &mut PositionMap| {
+                    position_map.remove(entity_to_be_removed);
+                });
         }
         query::Change(comp, query::ChangeType::UpdateComponent) => {
             if let Some(position) = comp.get::<base_components::Position>() {
-                world
-                    .write_resource(|position_map: &mut PositionMap| {
+                let x = comp.id().entity_id();
+                let y =[position.x, position.y];
+                c
+                    .write_resource(move|position_map: &mut PositionMap| {
                         position_map.update(
-                            comp.id().entity_id(),
-                            [position.x, position.y],
+                            x,
+                            y,
                         );
-                    })
-                    .expect("position map not found");
+                    });
             }
         }
     }
