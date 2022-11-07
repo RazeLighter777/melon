@@ -4,7 +4,7 @@ use hashbrown::{HashMap, HashSet};
 
 use crate::{
     component::{self, ComponentType, ComponentTypeId, UntypedComponent, TypedComponent},
-    entity_id, world, resource, resource_writer::WorldReferenceWriteClosure, entity_builder,
+    entity_id, resource, resource_writer::{self}, entity_builder,
 };
 
 pub struct Query {
@@ -39,15 +39,15 @@ impl Default for QueryBuilder {
 }
 pub struct QueryResult {
     entities: Vec<ComponentGroup>,
-    world_reference_closure : Vec<WorldReferenceWriteClosure>
+    resource_writer: resource_writer::ResourceWriter,
 }
 
 impl QueryResult {
-    pub(crate) fn get_changes(self) -> Vec<Change> {
-        self.entities
+    pub(crate) fn dissolve(self) -> (Vec<Change>, resource_writer::ResourceWriter) {
+        (self.entities
             .into_iter()
             .flat_map(|x| x.get_changes())
-            .collect()
+            .collect(), self.resource_writer)
     }
     pub fn iter(&mut self) -> std::slice::IterMut<ComponentGroup> {
         self.entities.iter_mut()
@@ -56,10 +56,7 @@ impl QueryResult {
         &mut self,
         closure: impl FnOnce(&mut R) -> ReturnType + 'static + Send,
     ){
-        self.world_reference_closure.push(Box::new(move |world : &mut world::World| {
-            world.write_resource::<R, ReturnType>(closure).unwrap();
-        }));
-        
+        self.resource_writer.write_resource(closure);
     }
     pub fn add_entity(&mut self) -> entity_builder::EntityBuilder {
         entity_builder::EntityBuilder::new(self)
@@ -79,7 +76,7 @@ impl QueryResultBuilder {
         QueryResultBuilder {
             query_result: QueryResult {
                 entities: Vec::new(),
-                world_reference_closure : Vec::new()
+                resource_writer: resource_writer::ResourceWriter::new(),
             },
         }
     }

@@ -33,13 +33,13 @@ impl ChangeHook {
 }
 
 pub trait Unloader: Send + Sync {
-    fn hook(&mut self, component: Vec<component::UntypedComponent>, world: &world::World);
+    fn hook(&self, component: Vec<component::UntypedComponent>, world: &world::World);
 }
 
 pub trait Loader: Send + Sync {
-    fn hook(
-        &mut self,
+    fn load(
+        &self,
         id: Vec<entity_id::EntityId>,
         world: &world::World,
-    ) -> (Vec<query::Change>, Vec<entity_id::EntityId>);
+    ) -> Vec<component::UntypedComponent>;
 }

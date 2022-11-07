@@ -17,5 +17,6 @@ fn insert_test(b: &mut Bencher) {
                 })
                 .spawn();
         }
+        world.add_entity().spawn();
     })
 }

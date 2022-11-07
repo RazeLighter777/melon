@@ -156,24 +156,15 @@ impl World {
             .iter()
             .map(|system| {
                 let mut query_result = self.query_world(system.query());
-                let mut commands = resource_writer::ResourceWriter::new();
-                system.execute(&mut query_result, &mut commands, self);
-                (query_result.get_changes(), commands)
+                system.execute(&mut query_result, self);
+                query_result.dissolve()
             }).unzip();
         self.execute_changes(changed.into_iter().flatten());
         cmds.into_iter().for_each(|x| self.execute_command(x));
     }
 
-    pub fn load(&mut self, id: Vec<entity_id::EntityId>) -> Vec<entity_id::EntityId> {
-        let mut loaded = Vec::new();
-        if let Some(loader) = &self.loader.clone() {
-            if let Ok(mut ld) = loader.lock() {
-                let res = ld.hook(id, self);
-                self.execute_changes(res.0);
-                loaded = res.1;
-            }
-        }
-        loaded
+    pub fn load(&mut self, _: Vec<entity_id::EntityId>) -> Vec<entity_id::EntityId> {
+        todo!()
     }
 
     pub fn execute_command(&mut self, command: resource_writer::ResourceWriter) {

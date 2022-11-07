@@ -14,7 +14,6 @@ impl system::System for TestSystem {
     fn execute(
         &self,
         query_result: &mut query::QueryResult,
-        _: &mut resource_writer::ResourceWriter,
         _world: &world::World,
     ) {
 
