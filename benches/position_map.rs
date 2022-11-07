@@ -15,12 +15,12 @@ impl system::System for TestSystem {
     fn execute(
         &self,
         query_result: &mut query::QueryResult,
+        _: &mut resource_writer::ResourceWriter,
         _world: &world::World,
-    ) -> resource_writer::ResourceWriter {
+    ) {
         for e in query_result.iter() {
             e.get::<base_components::Position>().unwrap().x += 1;
         }
-        resource_writer::ResourceWriter::new()
     }
 }
 

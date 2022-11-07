@@ -4,7 +4,7 @@ use hashbrown::{HashMap, HashSet};
 
 use crate::{
     component::{self, ComponentType, ComponentTypeId, UntypedComponent, TypedComponent},
-    entity_id, world, resource, resource_writer::WorldReferenceWriteClosure,
+    entity_id, world, resource, resource_writer::WorldReferenceWriteClosure, entity_builder,
 };
 
 pub struct Query {
@@ -61,6 +61,14 @@ impl QueryResult {
         }));
         
     }
+    pub fn add_entity(&mut self) -> entity_builder::EntityBuilder {
+        entity_builder::EntityBuilder::new(self)
+    }
+}
+impl entity_builder::SpawnLocation for QueryResult {
+    fn spawn(&mut self, components: Vec<component::UntypedComponent>) {
+        self.entities.push(ComponentGroup { id: entity_id::EntityId::new(), components: components.into_iter().map(|x| (x.get_type(), x)).collect(), new : true });
+    }
 }
 
 pub struct QueryResultBuilder {
@@ -99,6 +107,7 @@ impl Default for QueryResultBuilder {
 pub struct ComponentGroup {
     id: entity_id::EntityId,
     components: HashMap<ComponentTypeId, UntypedComponent>,
+    new : bool
 }
 
 pub struct TypedComponentWriteback<'a, T: ComponentType> {
@@ -150,13 +159,14 @@ impl ComponentGroup {
                 .map(|component| (component.get_type(), component))
                 .collect(),
             id,
+            new : false
         }
     }
     pub fn get_changes(&self) -> Vec<Change> {
         self.components
             .iter()
             .filter(|(_, component)| component.is_unqiue())
-            .map(|(_, component)| Change(component.clone(), ChangeType::UpdateComponent))
+            .map(|(_, component)| Change(component.clone(),  if self.new { ChangeType::AddComponent } else { ChangeType::UpdateComponent } ))
             .collect()
     }
 }
