@@ -5,12 +5,10 @@ use crate::{
     entity_id::{self},
     hook::{self, ChangeHook},
     query::{self, Change},
-    resource, stage, resource_writer,
+    resource, resource_writer, stage,
 };
 use hashbrown::{HashMap, HashSet};
 use rayon::prelude::*;
-
-
 
 #[derive(Clone, Debug)]
 pub enum WorldError {
@@ -139,16 +137,21 @@ impl World {
     }
 
     pub fn execute_stage(&mut self, stage: &stage::Stage) {
-        let (changed, cmds) : (Vec<Vec<query::Change>>, Vec<resource_writer::ResourceWriter>)= 
-            stage.iter()
+        stage
+            .iter()
             .map(|x| {
                 let mut query_res = self.query_world(x.query());
                 x.execute(&mut query_res, self);
-                query_res.dissolve()
+                query_res
+                //stupidness below, can't convert par_iter to iter easily
             })
-            .unzip();
-        self.execute_changes(changed.into_iter().flatten());
-        cmds.into_iter().for_each(|x| self.execute_command(x));
+            .collect::<Vec<_>>()
+            .into_iter()
+            .for_each(|res| {
+                let (changes, cmds) = res.dissolve();
+                changes.into_iter().for_each(|x| self.execute_change(x));
+                self.execute_command(cmds);
+            });
     }
 
     pub fn load(&mut self, _: Vec<entity_id::EntityId>) -> Vec<entity_id::EntityId> {
@@ -171,102 +174,72 @@ impl World {
             .and_then(|x| self.components.get(x).and_then(|x| x.get::<T>()))
     }
 
-    fn execute_changes(&mut self, changed: impl IntoIterator<Item = Change>+ Send + Sync) {
-        //execute untyped hooks
-        let change_map = 
-        changed.into_iter().fold(HashMap::new(), |mut acc, x| {
-            acc.entry(x.0.get_type())
-                .or_insert_with(Vec::new)
-                .push(x);
-            acc
-        });
-        let (newchanges, commands) : (Vec<Change>, Vec<resource_writer::ResourceWriter>)= self
+    fn execute_change(&mut self, change: Change) {
+        //execute hooks
+        let cngs = self
             .hooks
-            .par_iter()
-            .map(|hook| {
-                if let Some(ctype) = hook.get_type() {
-                    if let Some(changes) = change_map.get(&ctype) {
-                        let  (chgs, cmds) : (Vec<Vec<Change>>, Vec<resource_writer::ResourceWriter>) = changes
-                            .par_iter()
-                            .map(|x| {
-                                let mut commands  = resource_writer::ResourceWriter::new();
-                                (hook.execute(x, self, &mut commands), commands)
-                            })
-                            .unzip();
-                        (chgs.into_iter().flatten().collect::<Vec<_>>(), cmds)
-                    } else {
-                        (Vec::new(), Vec::new())
+            .iter()
+            .flat_map(|x| {
+                let mut res_writer = resource_writer::ResourceWriter::new();
+                match x.get_type() {
+                    Some(tp)  if change.0.get_type() == tp => {
+                        x.execute(&change, self, &mut res_writer)
                     }
-                } else {
-                    let  (chgs, cmds) : (Vec<Vec<Change>>, Vec<resource_writer::ResourceWriter>) = change_map
-                            .par_iter()
-                            .flat_map(|x| x.1)
-                            .map(|x| {
-                                let mut commands  = resource_writer::ResourceWriter::new();
-                                (hook.execute(x, self, &mut commands), commands)
-                            })
-                            .unzip();
-                        (chgs.into_iter().flatten().collect::<Vec<_>>(), cmds)
-    
+                    None => x.execute(&change, self, &mut res_writer),
+                    _ => vec![],
                 }
             })
-            .flatten()
-            .unzip();
-        commands.into_iter().for_each(|x| self.execute_command(x));
-        if !newchanges.is_empty() {
-            self.execute_changes(newchanges);
-        }
-        change_map.into_iter().flat_map(|x| x.1).for_each(|change| {
-            match change {
-                query::Change(
-                    comp,
-                    _removed_or_unloaded @ (query::ChangeType::RemoveComponent
-                    | query::ChangeType::UnloadComponent),
-                ) => {
-                    let tid = &&comp.get_type();
-                    let eid = &comp.id().entity_id();
-                    let id = &comp.id();
-                    if let Some(set) = self.entities.get_mut(eid) {
-                        set.remove(id);
-                        if set.is_empty() {
-                            self.entities.remove(eid);
-                        }
-                    }
-                    if let Some(set) = self.components_types.get_mut(tid) {
-                        set.remove(eid);
-                        if set.is_empty() {
-                            self.entities.remove(eid);
-                        }
-                    }
-                    self.components.remove(id);
-                }
-                query::Change(comp, query::ChangeType::AddComponent) => {
-                    let tid = comp.get_type();
-                    //execute add component hooks
-                    let eid = comp.id().entity_id();
-                    let cid = comp.id();
-                    self.components.insert(cid, comp);
-                    if let Some(set) = self.entities.get_mut(&eid) {
-                        set.insert(cid);
-                    } else {
-                        let mut set = HashSet::new();
-                        set.insert(cid);
-                        self.entities.insert(eid, set);
-                    }
-                    if let Some(set) = self.components_types.get_mut(&tid) {
-                        set.insert(eid);
-                    } else {
-                        let mut set = HashSet::new();
-                        set.insert(eid);
-                        self.components_types.insert(tid, set);
+            .collect::<Vec<_>>();
+        cngs.into_iter().for_each(|x| self.execute_change(x));
+        match change {
+            query::Change(
+                comp,
+                _removed_or_unloaded @ (query::ChangeType::RemoveComponent
+                | query::ChangeType::UnloadComponent),
+            ) => {
+                let tid = &&comp.get_type();
+                let eid = &comp.id().entity_id();
+                let id = &comp.id();
+                if let Some(set) = self.entities.get_mut(eid) {
+                    set.remove(id);
+                    if set.is_empty() {
+                        self.entities.remove(eid);
                     }
                 }
-                query::Change(comp, query::ChangeType::UpdateComponent) => {
-                    let id = comp.id();
-                    self.components.insert(id, comp);
+                if let Some(set) = self.components_types.get_mut(tid) {
+                    set.remove(eid);
+                    if set.is_empty() {
+                        self.entities.remove(eid);
+                    }
+                }
+                self.components.remove(id);
+            }
+            query::Change(comp, query::ChangeType::AddComponent) => {
+                let tid = comp.get_type();
+                //execute add component hooks
+                let eid = comp.id().entity_id();
+                let cid = comp.id();
+                self.components.insert(cid, comp);
+                if let Some(set) = self.entities.get_mut(&eid) {
+                    set.insert(cid);
+                } else {
+                    let mut set = HashSet::new();
+                    set.insert(cid);
+                    self.entities.insert(eid, set);
+                }
+                if let Some(set) = self.components_types.get_mut(&tid) {
+                    set.insert(eid);
+                } else {
+                    let mut set = HashSet::new();
+                    set.insert(eid);
+                    self.components_types.insert(tid, set);
                 }
             }
-        });
+            query::Change(comp, query::ChangeType::UpdateComponent) => {
+                let id = comp.id();
+                self.components.insert(id, comp);
+            }
+        }
     }
 
     pub fn add_entity(&mut self) -> entity_builder::EntityBuilder {
@@ -277,21 +250,24 @@ impl World {
         if let Some(set) = self.entities.get(&id) {
             let changes = set
                 .iter()
-                .map(|x| query::Change(self.components.get(x).unwrap().clone(), query::ChangeType::RemoveComponent))
+                .map(|x| {
+                    query::Change(
+                        self.components.get(x).unwrap().clone(),
+                        query::ChangeType::RemoveComponent,
+                    )
+                })
                 .collect::<Vec<_>>();
-            self.execute_changes(changes);
+            changes.into_iter().for_each(|x| self.execute_change(x));
         }
     }
 }
 
 impl entity_builder::SpawnLocation for World {
     fn spawn(&mut self, components: Vec<component::UntypedComponent>) {
-        self.execute_changes(
-            components
-                .into_iter()
-                .map(|x| query::Change(x, query::ChangeType::AddComponent))
-                .collect::<Vec<_>>(),
-        );
+        components
+            .into_iter()
+            .map(|x| query::Change(x, query::ChangeType::AddComponent))
+            .for_each(|change| self.execute_change(change));
     }
 }
 

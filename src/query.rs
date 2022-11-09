@@ -3,8 +3,9 @@ use std::ops::{Deref, DerefMut};
 use hashbrown::{HashMap, HashSet};
 
 use crate::{
-    component::{self, ComponentType, ComponentTypeId, UntypedComponent, TypedComponent},
-    entity_id, resource, resource_writer::{self}, entity_builder,
+    component::{self, ComponentType, ComponentTypeId, TypedComponent, UntypedComponent},
+    entity_builder, entity_id, resource,
+    resource_writer::{self},
 };
 
 pub struct Query {
@@ -44,10 +45,13 @@ pub struct QueryResult {
 
 impl QueryResult {
     pub(crate) fn dissolve(self) -> (Vec<Change>, resource_writer::ResourceWriter) {
-        (self.entities
-            .into_iter()
-            .flat_map(|x| x.get_changes())
-            .collect(), self.resource_writer)
+        (
+            self.entities
+                .into_iter()
+                .flat_map(|x| x.get_changes())
+                .collect(),
+            self.resource_writer,
+        )
     }
     pub fn iter(&mut self) -> std::slice::IterMut<ComponentGroup> {
         self.entities.iter_mut()
@@ -55,7 +59,7 @@ impl QueryResult {
     pub fn write_resource<R: resource::Resource + 'static, ReturnType>(
         &mut self,
         closure: impl FnOnce(&mut R) -> ReturnType + 'static + Send,
-    ){
+    ) {
         self.resource_writer.write_resource(closure);
     }
     pub fn add_entity(&mut self) -> entity_builder::EntityBuilder {
@@ -64,7 +68,11 @@ impl QueryResult {
 }
 impl entity_builder::SpawnLocation for QueryResult {
     fn spawn(&mut self, components: Vec<component::UntypedComponent>) {
-        self.entities.push(ComponentGroup { id: entity_id::EntityId::new(), components: components.into_iter().map(|x| (x.get_type(), x)).collect(), new : true });
+        self.entities.push(ComponentGroup {
+            id: entity_id::EntityId::new(),
+            components: components.into_iter().map(|x| (x.get_type(), x)).collect(),
+            new: true,
+        });
     }
 }
 
@@ -104,15 +112,15 @@ impl Default for QueryResultBuilder {
 pub struct ComponentGroup {
     id: entity_id::EntityId,
     components: HashMap<ComponentTypeId, UntypedComponent>,
-    new : bool
+    new: bool,
 }
 
 pub struct TypedComponentWriteback<'a, T: ComponentType> {
-    component : TypedComponent<T>,
-    group : &'a mut ComponentGroup,
+    component: TypedComponent<T>,
+    group: &'a mut ComponentGroup,
 }
 
-impl <'a, T: ComponentType> Deref for TypedComponentWriteback<'a, T> {
+impl<'a, T: ComponentType> Deref for TypedComponentWriteback<'a, T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -120,16 +128,18 @@ impl <'a, T: ComponentType> Deref for TypedComponentWriteback<'a, T> {
     }
 }
 
-impl <'a, T: ComponentType> DerefMut for TypedComponentWriteback<'a, T> {
+impl<'a, T: ComponentType> DerefMut for TypedComponentWriteback<'a, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.component.deref_mut()
     }
 }
 
 //write back changes when the TypedComponentWriteback goes out of scope
-impl <'a, T: ComponentType> Drop for TypedComponentWriteback<'a, T> {
+impl<'a, T: ComponentType> Drop for TypedComponentWriteback<'a, T> {
     fn drop(&mut self) {
-        self.group.components.insert(self.component.get_type_id(), self.component.get_untyped());
+        self.group
+            .components
+            .insert(self.component.get_type_id(), self.component.get_untyped());
     }
 }
 
@@ -140,7 +150,7 @@ impl ComponentGroup {
             .cloned()
             .map(|x| TypedComponentWriteback {
                 component: TypedComponent::new(x),
-                group : self,
+                group: self,
             })
     }
     pub fn get_id(&self) -> entity_id::EntityId {
@@ -156,14 +166,23 @@ impl ComponentGroup {
                 .map(|component| (component.get_type(), component))
                 .collect(),
             id,
-            new : false
+            new: false,
         }
     }
     pub fn get_changes(&self) -> Vec<Change> {
         self.components
             .iter()
             .filter(|(_, component)| component.is_unqiue())
-            .map(|(_, component)| Change(component.clone(),  if self.new { ChangeType::AddComponent } else { ChangeType::UpdateComponent } ))
+            .map(|(_, component)| {
+                Change(
+                    component.clone(),
+                    if self.new {
+                        ChangeType::AddComponent
+                    } else {
+                        ChangeType::UpdateComponent
+                    },
+                )
+            })
             .collect()
     }
 }
@@ -177,4 +196,3 @@ pub enum ChangeType {
     AddComponent,
     UpdateComponent,
 }
-

@@ -1,7 +1,7 @@
 use crate::{
     base_components,
     entity_id::{self, EntityId},
-    query, resource, world, resource_writer,
+    query, resource, resource_writer, world,
 };
 use hashbrown::HashMap;
 use rtree_rs;
@@ -58,20 +58,20 @@ impl PositionMap {
 
 impl resource::Resource for PositionMap {}
 
-pub fn position_hook(change: &query::Change, _ : &world::World, c : &mut resource_writer::ResourceWriter) -> Vec<query::Change> {
+pub fn position_hook(
+    change: &query::Change,
+    _: &world::World,
+    c: &mut resource_writer::ResourceWriter,
+) -> Vec<query::Change> {
     //println!("size {}", position_map.map.lock().unwrap().len());
     match change {
         query::Change(comp, query::ChangeType::AddComponent) => {
             if let Some(position) = comp.get::<base_components::Position>() {
                 let x = comp.id().entity_id();
-                let y =[position.x, position.y];
-                c
-                    .write_resource(move |position_map: &mut PositionMap| {
-                        position_map.insert(
-                            x,
-                            y,
-                        );
-                    });
+                let y = [position.x, position.y];
+                c.write_resource(move |position_map: &mut PositionMap| {
+                    position_map.insert(x, y);
+                });
             }
         }
         query::Change(
@@ -79,22 +79,17 @@ pub fn position_hook(change: &query::Change, _ : &world::World, c : &mut resourc
             query::ChangeType::RemoveComponent | query::ChangeType::UnloadComponent,
         ) => {
             let entity_to_be_removed = comp.id().entity_id();
-            c
-                .write_resource(move |position_map: &mut PositionMap| {
-                    position_map.remove(entity_to_be_removed);
-                });
+            c.write_resource(move |position_map: &mut PositionMap| {
+                position_map.remove(entity_to_be_removed);
+            });
         }
         query::Change(comp, query::ChangeType::UpdateComponent) => {
             if let Some(position) = comp.get::<base_components::Position>() {
                 let x = comp.id().entity_id();
-                let y =[position.x, position.y];
-                c
-                    .write_resource(move|position_map: &mut PositionMap| {
-                        position_map.update(
-                            x,
-                            y,
-                        );
-                    });
+                let y = [position.x, position.y];
+                c.write_resource(move |position_map: &mut PositionMap| {
+                    position_map.update(x, y);
+                });
             }
         }
     }

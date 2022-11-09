@@ -1,4 +1,10 @@
-use std::{any::Any, fmt::Display, sync::Arc, ops::{Deref, DerefMut}, borrow::Borrow};
+use std::{
+    any::Any,
+    borrow::Borrow,
+    fmt::Display,
+    ops::{Deref, DerefMut},
+    sync::Arc,
+};
 
 use serde::{Deserialize, Serialize};
 
@@ -110,27 +116,27 @@ enum TypedComponentInternal<T: ComponentType> {
 }
 
 pub struct TypedComponent<T: ComponentType> {
-    internal :  TypedComponentInternal<T>,
+    internal: TypedComponentInternal<T>,
 }
 
 impl<T: ComponentType> TypedComponent<T> {
-    pub(crate) fn new(component:  UntypedComponent) -> Self {
+    pub(crate) fn new(component: UntypedComponent) -> Self {
         TypedComponent {
-            internal : TypedComponentInternal::Unchanged(component),
+            internal: TypedComponentInternal::Unchanged(component),
         }
     }
     pub fn get(&self) -> &T {
-        let x =  self.internal.borrow();
+        let x = self.internal.borrow();
         match x {
             TypedComponentInternal::Unchanged(x) => x.get_unchecked::<T>(),
-            TypedComponentInternal::Changed(x,_) => x,
+            TypedComponentInternal::Changed(x, _) => x,
         }
     }
     pub fn make_mut(&mut self) -> &mut T {
         if let TypedComponentInternal::Unchanged(c) = &mut self.internal {
             self.internal = TypedComponentInternal::Changed(c.get_unchecked::<T>().clone(), c.id());
         }
-        if let TypedComponentInternal::Changed(comp, _)  = &mut self.internal {
+        if let TypedComponentInternal::Changed(comp, _) = &mut self.internal {
             comp
         } else {
             unreachable!()
@@ -162,7 +168,7 @@ impl<T: ComponentType> TypedComponent<T> {
     }
 }
 
-impl<T: ComponentType> Deref for TypedComponent< T> {
+impl<T: ComponentType> Deref for TypedComponent<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -170,7 +176,7 @@ impl<T: ComponentType> Deref for TypedComponent< T> {
     }
 }
 
-impl< T: ComponentType> DerefMut for TypedComponent<T> {
+impl<T: ComponentType> DerefMut for TypedComponent<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.make_mut()
     }

@@ -1,10 +1,11 @@
-use crate::{component, entity_id, query, world, resource_writer};
+use crate::{component, entity_id, query, resource_writer, world};
 
 pub(crate) struct ChangeHook {
     closure: HookLambda,
     component_type: Option<component::ComponentTypeId>,
 }
-pub type HookLambda = fn(&query::Change, &world::World, &mut resource_writer::ResourceWriter) -> Vec<query::Change>;
+pub type HookLambda =
+    fn(&query::Change, &world::World, &mut resource_writer::ResourceWriter) -> Vec<query::Change>;
 
 impl ChangeHook {
     pub fn new(closure: HookLambda) -> Self {

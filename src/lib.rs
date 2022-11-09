@@ -5,7 +5,6 @@
 extern crate test;
 pub mod archetype;
 pub mod base_components;
-pub mod resource_writer;
 pub mod component;
 pub mod default_world;
 pub mod entity_builder;
@@ -16,6 +15,7 @@ pub mod lore;
 pub mod position_map;
 pub mod query;
 pub mod resource;
+pub mod resource_writer;
 pub mod stage;
 pub mod system;
 pub mod world;
