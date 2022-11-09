@@ -10,20 +10,7 @@ use crate::{
 use hashbrown::{HashMap, HashSet};
 use rayon::prelude::*;
 
-#[derive(Clone)]
-pub struct WorldRef {
-    reference: Arc<World>,
-}
 
-impl std::ops::Deref for WorldRef {
-    type Target = Arc<World>;
-
-    fn deref(&self) -> &Arc<World> {
-        &self.reference
-    }
-}
-
-impl WorldRef {}
 
 #[derive(Clone, Debug)]
 pub enum WorldError {
@@ -136,7 +123,7 @@ impl World {
         if let Some(resource) = self.resources.get(&resource::get_resource_id::<R>()) {
             Ok(closure(resource.get_as::<R>()))
         } else {
-            Err(WorldError::EntityNotFound)
+            Err(WorldError::ResourceNotFound)
         }
     }
 
@@ -147,18 +134,19 @@ impl World {
         if let Some(resource) = self.resources.get_mut(&resource::get_resource_id::<R>()) {
             Ok(closure(resource.get_as_mut::<R>()))
         } else {
-            Err(WorldError::EntityNotFound)
+            Err(WorldError::ResourceNotFound)
         }
     }
 
     pub fn execute_stage(&mut self, stage: &stage::Stage) {
-        let (changed, cmds) : (Vec<Vec<query::Change>>, Vec<resource_writer::ResourceWriter>)= stage
-            .iter()
-            .map(|system| {
-                let mut query_result = self.query_world(system.query());
-                system.execute(&mut query_result, self);
-                query_result.dissolve()
-            }).unzip();
+        let (changed, cmds) : (Vec<Vec<query::Change>>, Vec<resource_writer::ResourceWriter>)= 
+            stage.iter()
+            .map(|x| {
+                let mut query_res = self.query_world(x.query());
+                x.execute(&mut query_res, self);
+                query_res.dissolve()
+            })
+            .unzip();
         self.execute_changes(changed.into_iter().flatten());
         cmds.into_iter().for_each(|x| self.execute_command(x));
     }
@@ -186,8 +174,10 @@ impl World {
     fn execute_changes(&mut self, changed: impl IntoIterator<Item = Change>+ Send + Sync) {
         //execute untyped hooks
         let change_map = 
-        changed.into_iter().fold(std::collections::HashMap::new(), |mut acc, x| {
-            acc.entry(x.0.get_type()).or_insert_with(Vec::new).push(x);
+        changed.into_iter().fold(HashMap::new(), |mut acc, x| {
+            acc.entry(x.0.get_type())
+                .or_insert_with(Vec::new)
+                .push(x);
             acc
         });
         let (newchanges, commands) : (Vec<Change>, Vec<resource_writer::ResourceWriter>)= self
